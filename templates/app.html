@@ -95,6 +95,10 @@
                 <label>Potvrzení hesla:</label>
                 <input type="password" id="regPasswordConfirm" onkeypress="if(event.key==='Enter') register()" />
             </div>
+            <div style="margin: 15px 0; font-size: 12px; color: #666;">
+                <label><input type="checkbox" id="agreeTerms" required> Souhlasím s <a href="/terms" target="_blank">obchodními podmínkami</a></label><br>
+                <label><input type="checkbox" id="agreePrivacy" required> Souhlasím se <a href="/privacy" target="_blank">zpracováním osobních údajů</a></label>
+            </div>
             <button class="btn" onclick="register()">Registrovat se</button>
         </div>
 
@@ -221,6 +225,7 @@
         </div>
     </div>
 
+    <script src="/static/js/cookies.js"></script>
     <script>
         let currentUser = null;
 
@@ -271,6 +276,15 @@
         }
 
         async function register() {
+            if (!document.getElementById('agreeTerms').checked) {
+                showMessage('Musíte souhlasit s obchodními podmínkami', 'error');
+                return;
+            }
+            if (!document.getElementById('agreePrivacy').checked) {
+                showMessage('Musíte souhlasit se zpracováním osobních údajů', 'error');
+                return;
+            }
+            
             const data = {
                 name: document.getElementById('regName').value,
                 phone: document.getElementById('regPhone').value,
