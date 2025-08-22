@@ -272,6 +272,7 @@
             } else if (section === 'search') {
                 setTimeout(() => {
                     if (!searchMap) initSearchMap();
+                    autoUpdateLocation();
                 }, 100);
             }
         }
@@ -1249,6 +1250,7 @@
         let myLocationMarker = null;
         let searchRadius = null;
         let currentLocation = null;
+        let autoLocationInterval = null;
         
         function updateRangeValue(value) {
             let actualRange;
@@ -1284,6 +1286,66 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(searchMap);
+        }
+        
+        function autoUpdateLocation() {
+            if (autoLocationInterval) {
+                clearInterval(autoLocationInterval);
+            }
+            
+            // Okamžitě načti polohu
+            updateLocationOnce();
+            
+            // Pak aktualizuj každých 30 sekund
+            autoLocationInterval = setInterval(updateLocationOnce, 30000);
+        }
+        
+        function updateLocationOnce() {
+            if (!searchMap) return;
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        currentLocation = { lat, lng };
+                        
+                        // Odstraň starý marker a kruh
+                        if (myLocationMarker) searchMap.removeLayer(myLocationMarker);
+                        if (searchRadius) searchMap.removeLayer(searchRadius);
+                        
+                        // Přidej marker mé polohy
+                        myLocationMarker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                html: '<div style="background: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                                iconSize: [22, 22],
+                                iconAnchor: [11, 11]
+                            })
+                        }).addTo(searchMap);
+                        
+                        // Přidej kruh vzdálenosti
+                        const rangeSlider = document.getElementById('searchRange').value;
+                        if (rangeSlider > 0) {
+                            const actualRange = Math.round(Math.pow(rangeSlider / 100 * 300, 1.5) / 10);
+                            if (actualRange > 0) {
+                                searchRadius = L.circle([lat, lng], {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.1,
+                                    radius: actualRange * 1000
+                                }).addTo(searchMap);
+                            }
+                        }
+                        
+                        myLocationMarker.bindPopup('📍 Vaše aktuální poloha (automaticky aktualizováno)');
+                    },
+                    (error) => {
+                        console.log('GPS nedostupné:', error);
+                    },
+                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+                );
+            }
         }
         
         function showMyLocation() {
