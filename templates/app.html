@@ -1299,13 +1299,17 @@
                 if (actualRange > 300) actualRange = 300;
             }
             
-            document.getElementById('rangeValue').textContent = actualRange;
-            
-            if (searchRadius && currentLocation) {
-                searchMap.removeLayer(searchRadius);
+            const rangeElement = document.getElementById('rangeValue');
+            if (rangeElement) {
+                rangeElement.textContent = actualRange;
             }
             
-            if (currentLocation && actualRange > 0) {
+            if (searchMap && searchRadius) {
+                searchMap.removeLayer(searchRadius);
+                searchRadius = null;
+            }
+            
+            if (searchMap && currentLocation && actualRange > 0) {
                 searchRadius = L.circle([currentLocation.lat, currentLocation.lng], {
                     color: '#007bff',
                     fillColor: '#007bff',
@@ -1616,6 +1620,14 @@
         // Inicializace
         checkSavedLogin();
         updateUI();
+        
+        // Inicializuj slider hodnotu
+        setTimeout(() => {
+            const slider = document.getElementById('searchRange');
+            if (slider) {
+                updateRangeValue(slider.value);
+            }
+        }, 100);
     </script>
 </body>
 </html>
