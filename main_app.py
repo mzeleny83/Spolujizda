@@ -378,8 +378,13 @@ def register():
         password = data.get('password')
         
         # Validace jména
-        if len(name) < 2 or name.lower() in ['test', 'user', 'anonym', 'guest', 'admin', 'null', 'undefined']:
-            return jsonify({'error': 'Zadejte platné jméno (minimálně 2 znaky, ne generické)'}), 400
+        forbidden_names = ['neznámý řidič', 'neznámý', 'unknown', 'driver', 'řidič', 'neznámy ridic', 'test', 'user', 'anonym', 'guest', 'admin', 'null', 'undefined', 'testovací', 'robot']
+        
+        if len(name) < 2:
+            return jsonify({'error': 'Jméno musí mít alespoň 2 znaky'}), 400
+            
+        if any(forbidden in name.lower() for forbidden in forbidden_names):
+            return jsonify({'error': 'Zadejte platné jméno a příjmení'}), 400
         
         email = data.get('email', '').strip()
         password_confirm = data.get('password_confirm')
