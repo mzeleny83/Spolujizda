@@ -679,6 +679,7 @@
                         <div style="margin-top: 10px;">
                             <span style="background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px;">✓ Rezervováno</span>
                             <button class="btn" onclick="openChat('passenger', ${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #17a2b8; margin-left: 10px; padding: 5px 15px;">💬 Chat s řidičem</button>
+                            <button class="btn" onclick="rateDriver(${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #ffc107; margin-left: 10px; padding: 5px 15px;">⭐ Hodnotit řidiče</button>
                             <button class="btn btn-success" onclick="payForReservation(${reservation.reservation_id}, ${reservation.price_per_person})" style="margin-left: 10px; padding: 5px 15px;">💳 Zaplatit</button>
                             <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})" style="margin-left: 10px; padding: 5px 15px;">❌ Zrušit</button>
                         </div>
@@ -835,8 +836,15 @@
         let currentChatType = null;
         
         function openChat(type, rideId, partnerName) {
+            if (!currentUser) {
+                showMessage('Musíte být přihlášeni!', 'error');
+                return;
+            }
+            
             currentChatRide = rideId;
             currentChatType = type;
+            
+            console.log('Opening chat:', type, rideId, partnerName); // Debug
             
             document.getElementById('chatTitle').textContent = `💬 Chat - ${partnerName}`;
             document.getElementById('chatInput').style.display = 'block';
@@ -927,6 +935,7 @@
                 const passengersList = reservations.map(res => 
                     `<div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #28a745;">
                         <strong>👤 ${res.passenger_name}</strong> | 📞 ${res.passenger_phone} | 🎫 ${res.seats_reserved} místo
+                        <button onclick="ratePassenger('${res.passenger_name}', ${rideId})" style="background: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 3px; margin-left: 10px; cursor: pointer; font-size: 11px;">⭐ Hodnotit</button>
                     </div>`
                 ).join('');
                 
@@ -937,6 +946,70 @@
                 if (passengersDiv) {
                     passengersDiv.innerHTML = '<div style="color: #dc3545;">❌ Chyba při načítání</div>';
                 }
+            }
+        }
+        
+        async function rateDriver(reservationId, driverName) {
+            const rating = prompt(`Hodnocení řidiče ${driverName} (1-5 hvězdiček):`);
+            if (!rating || rating < 1 || rating > 5) {
+                showMessage('Zadejte hodnocení 1-5', 'error');
+                return;
+            }
+            
+            const comment = prompt('Komentář (volitelný):') || '';
+            
+            try {
+                const response = await fetch('/api/ratings/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        ride_id: reservationId,
+                        rater_id: currentUser.id,
+                        rated_id: 0, // Bude se hledat podle jména
+                        rating: parseInt(rating),
+                        comment: comment
+                    })
+                });
+                
+                if (response.ok) {
+                    showMessage('Řidič ohodnocen!');
+                } else {
+                    showMessage('Chyba při hodnocení', 'error');
+                }
+            } catch (error) {
+                showMessage('Chyba: ' + error.message, 'error');
+            }
+        }
+        
+        async function ratePassenger(passengerName, rideId) {
+            const rating = prompt(`Hodnocení pasažéra ${passengerName} (1-5 hvězdiček):`);
+            if (!rating || rating < 1 || rating > 5) {
+                showMessage('Zadejte hodnocení 1-5', 'error');
+                return;
+            }
+            
+            const comment = prompt('Komentář (volitelný):') || '';
+            
+            try {
+                const response = await fetch('/api/ratings/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        ride_id: rideId,
+                        rater_id: currentUser.id,
+                        rated_id: 0, // Bude se hledat podle jména
+                        rating: parseInt(rating),
+                        comment: comment
+                    })
+                });
+                
+                if (response.ok) {
+                    showMessage('Pasažér ohodnocen!');
+                } else {
+                    showMessage('Chyba při hodnocení', 'error');
+                }
+            } catch (error) {
+                showMessage('Chyba: ' + error.message, 'error');
             }
         }
         

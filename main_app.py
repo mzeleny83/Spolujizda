@@ -889,6 +889,26 @@ def create_reservation():
 def get_user_reservations_simple(user_id):
     return jsonify([])
 
+@app.route('/api/rides/cancel/<int:ride_id>', methods=['DELETE'])
+def cancel_ride(ride_id):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Zruš všechny rezervace pro tuto jízdu
+        c.execute('UPDATE reservations SET status = "cancelled" WHERE ride_id = ?', (ride_id,))
+        
+        # Smaž jízdu
+        c.execute('DELETE FROM rides WHERE id = ?', (ride_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Jízda zrušena'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/reservations/cancel/<int:reservation_id>', methods=['DELETE'])
 def cancel_reservation_new(reservation_id):
     try:
