@@ -49,12 +49,12 @@
         <!-- Hledání jízd -->
         <div id="search" class="section active">
             <h2>Hledat jízdy</h2>
-            <div class="search-form">
+            <form onsubmit="search(); return false;" class="search-form">
                 <input type="text" id="from" placeholder="Odkud (Praha, Brno, Ostrava...)" />
                 <input type="text" id="to" placeholder="Kam (Praha, Brno, Ostrava...)" />
-                <button class="btn" onclick="search()">🔍 Hledat</button>
-                <button class="btn btn-success" onclick="showAll()">📋 Všechny jízdy</button>
-            </div>
+                <button type="submit" class="btn">🔍 Hledat</button>
+                <button type="button" class="btn btn-success" onclick="showAll()">📋 Všechny jízdy</button>
+            </form>
             <div id="searchResults"></div>
         </div>
 
@@ -63,11 +63,11 @@
             <h2>Přihlášení</h2>
             <div class="form-group">
                 <label>Telefon nebo email:</label>
-                <input type="text" id="loginPhone" placeholder="+420123456789 nebo email@example.com" />
+                <input type="text" id="loginPhone" placeholder="+420123456789 nebo email@example.com" onkeypress="if(event.key==='Enter') login()" />
             </div>
             <div class="form-group">
                 <label>Heslo:</label>
-                <input type="password" id="loginPassword" />
+                <input type="password" id="loginPassword" onkeypress="if(event.key==='Enter') login()" />
             </div>
             <button class="btn" onclick="login()">Přihlásit se</button>
         </div>
@@ -77,23 +77,23 @@
             <h2>Registrace</h2>
             <div class="form-group">
                 <label>Jméno:</label>
-                <input type="text" id="regName" placeholder="Jan Novák" />
+                <input type="text" id="regName" placeholder="Jan Novák" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <div class="form-group">
                 <label>Telefon:</label>
-                <input type="text" id="regPhone" placeholder="+420123456789" />
+                <input type="text" id="regPhone" placeholder="+420123456789" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <div class="form-group">
                 <label>Email (volitelný):</label>
-                <input type="email" id="regEmail" placeholder="jan@example.com" />
+                <input type="email" id="regEmail" placeholder="jan@example.com" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <div class="form-group">
                 <label>Heslo:</label>
-                <input type="password" id="regPassword" />
+                <input type="password" id="regPassword" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <div class="form-group">
                 <label>Potvrzení hesla:</label>
-                <input type="password" id="regPasswordConfirm" />
+                <input type="password" id="regPasswordConfirm" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <button class="btn" onclick="register()">Registrovat se</button>
         </div>
@@ -155,11 +155,11 @@
             <h2>Nabídnout jízdu</h2>
             <div class="form-group">
                 <label>Odkud:</label>
-                <input type="text" id="offerFrom" placeholder="Praha" />
+                <input type="text" id="offerFrom" placeholder="Praha" onkeypress="if(event.key==='Enter') offerRide()" />
             </div>
             <div class="form-group">
                 <label>Kam:</label>
-                <input type="text" id="offerTo" placeholder="Brno" />
+                <input type="text" id="offerTo" placeholder="Brno" onkeypress="if(event.key==='Enter') offerRide()" />
             </div>
             <div class="form-group">
                 <label>Datum a čas odjezdu:</label>
@@ -176,7 +176,7 @@
             </div>
             <div class="form-group">
                 <label>Cena za osobu (Kč):</label>
-                <input type="number" id="offerPrice" placeholder="200" />
+                <input type="number" id="offerPrice" placeholder="200" onkeypress="if(event.key==='Enter') offerRide()" />
             </div>
             <button class="btn btn-success" onclick="offerRide()">🚗 Nabídnout jízdu</button>
         </div>
