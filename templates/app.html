@@ -52,9 +52,18 @@
             <form onsubmit="search(); return false;" class="search-form">
                 <input type="text" id="from" placeholder="Odkud (Praha, Brno, Ostrava...)" />
                 <input type="text" id="to" placeholder="Kam (Praha, Brno, Ostrava...)" />
+                <div style="margin: 10px 0;">
+                    <label>Vzdálenost od mé polohy: <span id="rangeValue">10</span> km</label><br>
+                    <input type="range" id="searchRange" min="1" max="50" value="10" oninput="updateRangeValue(this.value)" style="width: 100%; margin: 5px 0;">
+                </div>
                 <button type="submit" class="btn">🔍 Hledat</button>
                 <button type="button" class="btn btn-success" onclick="showAll()">📋 Všechny jízdy</button>
+                <button type="button" class="btn" onclick="showMyLocation()" style="background: #17a2b8;">📍 Moje poloha</button>
             </form>
+            
+            <!-- Mapa pro vyhledávání -->
+            <div id="searchMap" style="width: 100%; height: 300px; border: 2px solid #ddd; border-radius: 8px; margin: 15px 0;"></div>
+            
             <div id="searchResults"></div>
         </div>
 
@@ -260,6 +269,10 @@
                 loadReservations();
             } else if (section === 'my-rides') {
                 loadMyRides();
+            } else if (section === 'search') {
+                setTimeout(() => {
+                    if (!searchMap) initSearchMap();
+                }, 100);
             }
         }
 
@@ -401,14 +414,27 @@
         async function search() {
             const from = document.getElementById('from').value.trim();
             const to = document.getElementById('to').value.trim();
+            const range = document.getElementById('searchRange').value;
             const results = document.getElementById('searchResults');
             
             results.innerHTML = '⏳ Hledám jízdy...';
             
+            // Inicializuj mapu pokud není
+            if (!searchMap) {
+                initSearchMap();
+                setTimeout(() => search(), 500); // Znovu spusť po inicializaci
+                return;
+            }
+            
             try {
                 let url = '/api/rides/search?';
-                if (from) url += `from=${from}&`;
-                if (to) url += `to=${to}&`;
+                if (from) url += `from=${encodeURIComponent(from)}&`;
+                if (to) url += `to=${encodeURIComponent(to)}&`;
+                
+                // Přidej GPS polohu pokud je dostupná
+                if (currentLocation) {
+                    url += `lat=${currentLocation.lat}&lng=${currentLocation.lng}&range=${range}&`;
+                }
                 
                 const response = await fetch(url);
                 const rides = await response.json();
@@ -1218,6 +1244,81 @@
         let isTracking = false;
         let trackingInterval = null;
         let userMarkers = {};
+        let searchMap = null;
+        let myLocationMarker = null;
+        let searchRadius = null;
+        let currentLocation = null;
+        
+        function updateRangeValue(value) {
+            document.getElementById('rangeValue').textContent = value;
+            if (searchRadius && currentLocation) {
+                searchMap.removeLayer(searchRadius);
+                searchRadius = L.circle([currentLocation.lat, currentLocation.lng], {
+                    color: '#007bff',
+                    fillColor: '#007bff',
+                    fillOpacity: 0.1,
+                    radius: value * 1000
+                }).addTo(searchMap);
+            }
+        }
+        
+        function initSearchMap() {
+            if (searchMap) return;
+            
+            searchMap = L.map('searchMap').setView([49.75, 15.5], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(searchMap);
+        }
+        
+        function showMyLocation() {
+            if (!searchMap) initSearchMap();
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        currentLocation = { lat, lng };
+                        
+                        // Odstraň starý marker a kruh
+                        if (myLocationMarker) searchMap.removeLayer(myLocationMarker);
+                        if (searchRadius) searchMap.removeLayer(searchRadius);
+                        
+                        // Přidej marker mé polohy
+                        myLocationMarker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                html: '<div style="background: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                                iconSize: [22, 22],
+                                iconAnchor: [11, 11]
+                            })
+                        }).addTo(searchMap);
+                        
+                        // Přidej kruh vzdálenosti
+                        const range = document.getElementById('searchRange').value;
+                        searchRadius = L.circle([lat, lng], {
+                            color: '#007bff',
+                            fillColor: '#007bff',
+                            fillOpacity: 0.1,
+                            radius: range * 1000
+                        }).addTo(searchMap);
+                        
+                        // Vycentruj mapu
+                        searchMap.setView([lat, lng], 12);
+                        
+                        myLocationMarker.bindPopup('📍 Vaše aktuální poloha').openPopup();
+                        showMessage('Poloha nalezena!');
+                    },
+                    (error) => {
+                        showMessage('Nelze získat GPS polohu', 'error');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+                );
+            } else {
+                showMessage('GPS není podporováno', 'error');
+            }
+        }
         
         function startLocationTracking() {
             if (!currentUser) {
@@ -1286,16 +1387,27 @@
                 map.removeLayer(userMarkers[userId]);
             }
             
-            const color = isCurrentUser ? '#007bff' : '#28a745';
-            const icon = isCurrentUser ? '📍' : '🚗';
+            let marker;
             
-            const marker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    html: `<div style="background: ${color}; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${icon}</div>`,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15]
-                })
-            }).addTo(map);
+            if (isCurrentUser) {
+                // Vlastní poloha - modrá tečka
+                marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                        iconSize: [22, 22],
+                        iconAnchor: [11, 11]
+                    })
+                }).addTo(map);
+            } else {
+                // Ostatní uživatelé - zelený marker s autem
+                marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🚗</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+            }
             
             marker.bindPopup(`
                 <div style="text-align: center;">

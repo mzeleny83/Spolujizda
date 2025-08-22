@@ -34,9 +34,9 @@
             <div class="nav">
                 <button onclick="showSection('search')" class="active">Hledat jízdu</button>
                 <button onclick="showSection('offer')" id="offerBtn" style="display:none;">Nabídnout jízdu</button>
+                <button onclick="showSection('my-rides')" id="myRidesBtn" style="display:none;">🚗 Mnou nabízené jízdy</button>
                 <button onclick="showSection('map'); loadMapRides();">🗺️ Mapa</button>
                 <button onclick="showSection('reservations')" id="reservationsBtn" style="display:none;">🎫 Rezervace</button>
-                <button onclick="showSection('my-rides')" id="myRidesBtn" style="display:none;">🚗 Moje jízdy</button>
                 <button onclick="showSection('login')" id="loginBtn">Přihlásit</button>
                 <button onclick="showSection('register')" id="registerBtn">Registrovat</button>
                 <button onclick="logout()" id="logoutBtn" style="display:none;">Odhlásit</button>
@@ -120,6 +120,8 @@
                 </div>
             </div>
             <button class="btn" onclick="loadMapRides()" style="margin-top: 15px;">🔄 Načíst jízdy</button>
+            <button class="btn" onclick="startLocationTracking()" id="trackingBtn" style="margin-top: 15px; margin-left: 10px;">📍 Sdílet polohu</button>
+            <button class="btn" onclick="showAllUserLocations()" style="margin-top: 15px; margin-left: 10px;">👥 Zobrazit uživatele</button>
         </div>
 
         <!-- Rezervované jízdy -->
@@ -246,7 +248,7 @@
                 if (btn.textContent.includes('Hledat') && section === 'search') btn.classList.add('active');
                 if (btn.textContent.includes('Mapa') && section === 'map') btn.classList.add('active');
                 if (btn.textContent.includes('Rezervace') && section === 'reservations') btn.classList.add('active');
-                if (btn.textContent.includes('Moje jízdy') && section === 'my-rides') btn.classList.add('active');
+                if (btn.textContent.includes('Mnou nabízené') && section === 'my-rides') btn.classList.add('active');
                 if (btn.textContent.includes('Chat') && section === 'chat') btn.classList.add('active');
                 if (btn.textContent.includes('Nabídnout') && section === 'offer') btn.classList.add('active');
                 if (btn.textContent.includes('Přihlásit') && section === 'login') btn.classList.add('active');
@@ -1210,6 +1212,125 @@
                 } catch (e) {
                     localStorage.removeItem('currentUser');
                 }
+            }
+        }
+        
+        let isTracking = false;
+        let trackingInterval = null;
+        let userMarkers = {};
+        
+        function startLocationTracking() {
+            if (!currentUser) {
+                showMessage('Musíte být přihlášeni!', 'error');
+                return;
+            }
+            
+            if (isTracking) {
+                stopLocationTracking();
+                return;
+            }
+            
+            if (navigator.geolocation) {
+                isTracking = true;
+                document.getElementById('trackingBtn').textContent = '⏹️ Zastavit sdílení';
+                
+                trackingInterval = setInterval(() => {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lng = position.coords.longitude;
+                            
+                            // Ulož polohu na server
+                            fetch('/api/users/location', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    user_id: currentUser.id,
+                                    lat: lat,
+                                    lng: lng
+                                })
+                            });
+                            
+                            // Aktualizuj vlastní marker
+                            updateUserMarker(currentUser.id, currentUser.name, lat, lng, true);
+                        },
+                        (error) => {
+                            console.error('GPS chyba:', error);
+                            stopLocationTracking();
+                        },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+                    );
+                }, 10000); // Aktualizace každých 10 sekund
+                
+                showMessage('Sdílení polohy zapínuto');
+            } else {
+                showMessage('GPS není podporováno', 'error');
+            }
+        }
+        
+        function stopLocationTracking() {
+            isTracking = false;
+            if (trackingInterval) {
+                clearInterval(trackingInterval);
+                trackingInterval = null;
+            }
+            document.getElementById('trackingBtn').textContent = '📍 Sdílet polohu';
+            showMessage('Sdílení polohy vypnuto');
+        }
+        
+        function updateUserMarker(userId, userName, lat, lng, isCurrentUser = false) {
+            if (!map) return;
+            
+            // Odstraň starý marker
+            if (userMarkers[userId]) {
+                map.removeLayer(userMarkers[userId]);
+            }
+            
+            let marker;
+            
+            if (isCurrentUser) {
+                // Vlastní poloha - modrá tečka
+                marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                        iconSize: [22, 22],
+                        iconAnchor: [11, 11]
+                    })
+                }).addTo(map);
+            } else {
+                // Ostatní uživatelé - zelený marker s autem
+                marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🚗</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+            }
+            
+            marker.bindPopup(`
+                <div style="text-align: center;">
+                    <h4>${userName}</h4>
+                    <p>${isCurrentUser ? 'Vaše poloha' : 'Aktuální poloha'}</p>
+                    <small>${new Date().toLocaleTimeString()}</small>
+                </div>
+            `);
+            
+            userMarkers[userId] = marker;
+        }
+        
+        async function showAllUserLocations() {
+            try {
+                const response = await fetch('/api/users/locations');
+                const locations = await response.json();
+                
+                locations.forEach(loc => {
+                    updateUserMarker(loc.user_id, loc.user_name, loc.lat, loc.lng, loc.user_id === currentUser?.id);
+                });
+                
+                showMessage(`Zobrazeno ${locations.length} uživatelů na mapě`);
+            } catch (error) {
+                showMessage('Chyba při načítání poloh', 'error');
             }
         }
         
