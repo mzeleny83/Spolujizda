@@ -358,7 +358,7 @@
                     <div class="ride">
                         <h3>${ride.from_location} → ${ride.to_location}</h3>
                         <div>🕐 ${ride.departure_time} | 👥 ${ride.available_seats} míst | 💰 ${ride.price_per_person} Kč</div>
-                        <div>🚗 ${ride.driver_name || 'Neznámý řidič'} ⭐ ${ride.driver_rating || 5.0}</div>
+                        <div>🚗 ${ride.driver_name || 'Neznámý řidič'} ⭐ ${ride.driver_rating || 5.0} <button onclick="showDriverReviews('${ride.driver_name}')" style="background: #17a2b8; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; margin-left: 5px;">💬 Recenze</button></div>
                         <div style="margin-top: 10px;">
                             <button class="btn" onclick="reserveRide(${ride.id})" style="background: #28a745; margin-right: 10px;">🎫 Rezervovat</button>
                             <button class="btn btn-success" onclick="payForRide(${ride.id}, ${ride.price_per_person})">💳 Zaplatit</button>
@@ -1015,6 +1015,33 @@
                 }
             } catch (error) {
                 showMessage('Chyba: ' + error.message, 'error');
+            }
+        }
+        
+        async function showDriverReviews(driverName) {
+            try {
+                const response = await fetch(`/api/users/${encodeURIComponent(driverName)}/reviews`);
+                const reviews = await response.json();
+                
+                if (reviews.length === 0) {
+                    alert(`${driverName} zatím nemá žádné slovní hodnocení.`);
+                    return;
+                }
+                
+                let reviewsText = `Recenze pro ${driverName}:\n\n`;
+                
+                reviews.forEach(review => {
+                    const stars = '⭐'.repeat(review.rating);
+                    const date = new Date(review.created_at).toLocaleDateString();
+                    reviewsText += `${stars} (${review.rating}/5)\n`;
+                    reviewsText += `"${review.comment}"\n`;
+                    reviewsText += `- ${review.rater_name}, ${date}\n\n`;
+                });
+                
+                alert(reviewsText);
+                
+            } catch (error) {
+                alert('Chyba při načítání recenzí: ' + error.message);
             }
         }
         
