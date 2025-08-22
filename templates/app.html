@@ -499,7 +499,8 @@
             results.innerHTML = '⏳ Načítám všechny jízdy...';
             
             try {
-                const response = await fetch('/api/rides/all');
+                // Ignoruj GPS filtr - načti všechny jízdy bez omezení
+                const response = await fetch('/api/rides/search');
                 const rides = await response.json();
                 
                 results.innerHTML = rides.map(ride => `
