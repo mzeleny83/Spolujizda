@@ -150,6 +150,28 @@
             </div>
         </div>
 
+        <!-- Hodnocení -->
+        <div id="rating" class="section">
+            <h2 id="ratingTitle">⭐ Hodnocení</h2>
+            <div id="ratingContent" style="text-align: center; padding: 30px;">
+                <h3 id="ratingUserName">Hodnotit uživatele</h3>
+                <div style="margin: 20px 0;">
+                    <span style="font-size: 40px; cursor: pointer; margin: 0 5px;" onclick="setRating(1)" id="star1">☆</span>
+                    <span style="font-size: 40px; cursor: pointer; margin: 0 5px;" onclick="setRating(2)" id="star2">☆</span>
+                    <span style="font-size: 40px; cursor: pointer; margin: 0 5px;" onclick="setRating(3)" id="star3">☆</span>
+                    <span style="font-size: 40px; cursor: pointer; margin: 0 5px;" onclick="setRating(4)" id="star4">☆</span>
+                    <span style="font-size: 40px; cursor: pointer; margin: 0 5px;" onclick="setRating(5)" id="star5">☆</span>
+                </div>
+                <div style="margin: 20px 0;">
+                    <textarea id="ratingComment" placeholder="Komentář (volitelný)..." style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="submitRating()">⭐ Odeslat hodnocení</button>
+                    <button class="btn" onclick="showSection('reservations')" style="margin-left: 10px;">❌ Zrušit</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Nabídka jízdy -->
         <div id="offer" class="section">
             <h2>Nabídnout jízdu</h2>
@@ -954,24 +976,54 @@
             }
         }
         
-        async function rateDriver(reservationId, driverName) {
-            const rating = prompt(`Hodnocení řidiče ${driverName} (1-5 hvězdiček):`);
-            if (!rating || rating < 1 || rating > 5) {
-                showMessage('Zadejte hodnocení 1-5', 'error');
+        let currentRating = 0;
+        let currentRatingData = {};
+        
+        function rateDriver(reservationId, driverName) {
+            currentRatingData = {
+                reservationId: reservationId,
+                driverName: driverName,
+                type: 'driver'
+            };
+            
+            document.getElementById('ratingUserName').textContent = `Hodnotit řidiče: ${driverName}`;
+            document.getElementById('ratingComment').value = '';
+            setRating(0);
+            showSection('rating');
+        }
+        
+        function setRating(rating) {
+            currentRating = rating;
+            
+            for (let i = 1; i <= 5; i++) {
+                const star = document.getElementById(`star${i}`);
+                if (i <= rating) {
+                    star.textContent = '★'; // Plná hvězdička
+                    star.style.color = '#ffc107';
+                } else {
+                    star.textContent = '☆'; // Prázdná hvězdička
+                    star.style.color = '#ddd';
+                }
+            }
+        }
+        
+        async function submitRating() {
+            if (currentRating === 0) {
+                showMessage('Vyberte hodnocení (1-5 hvězdiček)', 'error');
                 return;
             }
             
-            const comment = prompt('Komentář (volitelný):') || '';
+            const comment = document.getElementById('ratingComment').value.trim();
             
             try {
                 const response = await fetch('/api/ratings/create', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        ride_id: reservationId,
+                        ride_id: currentRatingData.reservationId,
                         rater_id: currentUser.id,
-                        driver_name: driverName,
-                        rating: parseInt(rating),
+                        driver_name: currentRatingData.driverName,
+                        rating: currentRating,
                         comment: comment
                     })
                 });
@@ -979,7 +1031,8 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    showMessage('Řidič ohodnocen!');
+                    showMessage('Řidič úspěšně ohodnocen!');
+                    showSection('reservations');
                 } else {
                     showMessage(result.error || 'Chyba při hodnocení', 'error');
                 }
