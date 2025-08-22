@@ -383,7 +383,7 @@
                     <div class="ride">
                         <h3>${ride.from_location} → ${ride.to_location}</h3>
                         <div>🕐 ${ride.departure_time} | 👥 ${ride.available_seats} míst | 💰 ${ride.price_per_person} Kč</div>
-                        <div>🚗 ${ride.driver_name || 'Neznámý řidič'}</div>
+                        <div>🚗 ${ride.driver_name || 'Neznámý řidič'} <button onclick="showDriverReviews('${ride.driver_name}')" style="background: #17a2b8; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 11px; cursor: pointer; margin-left: 5px;">💬 Recenze</button></div>
                         <div style="margin-top: 10px;">
                             <button class="btn" onclick="reserveRide(${ride.id})" style="background: #28a745; margin-right: 10px;">🎫 Rezervovat</button>
                             <button class="btn btn-success" onclick="payForRide(${ride.id}, ${ride.price_per_person})">💳 Zaplatit</button>
