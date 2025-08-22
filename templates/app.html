@@ -749,17 +749,22 @@
                 return;
             }
             
+            console.log('Loading rides for user:', currentUser.id); // Debug
+            
             const myRidesList = document.getElementById('myRidesList');
             myRidesList.innerHTML = '⏳ Načítám vaše jízdy...';
             
             try {
                 const response = await fetch(`/api/rides/driver/${currentUser.id}`);
                 
+                console.log('API response:', response.status); // Debug
+                
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 
                 const rides = await response.json();
+                console.log('Rides found:', rides.length, rides); // Debug
                 
                 if (rides.length === 0) {
                     myRidesList.innerHTML = '<div style="text-align:center;color:#666;margin:30px 0;">❌ Žádné nabízené jízdy</div>';
