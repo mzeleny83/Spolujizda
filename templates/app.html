@@ -322,8 +322,21 @@
             
 
             
+            const name = document.getElementById('regName').value.trim();
+            const forbiddenNames = ['neznámý řidič', 'neznámý', 'unknown', 'driver', 'řidič', 'neznámy ridic', 'test', 'user'];
+            
+            if (name.length < 2) {
+                showMessage('Jméno musí mít alespoň 2 znaky', 'error');
+                return;
+            }
+            
+            if (forbiddenNames.some(forbidden => name.toLowerCase().includes(forbidden))) {
+                showMessage('Zadejte platné jméno a příjmení', 'error');
+                return;
+            }
+            
             const data = {
-                name: document.getElementById('regName').value,
+                name: name,
                 phone: document.getElementById('regPhone').value,
                 email: document.getElementById('regEmail').value,
                 password: document.getElementById('regPassword').value,
