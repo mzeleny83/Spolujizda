@@ -36,7 +36,7 @@
                 <button onclick="showSection('offer')" id="offerBtn" style="display:none;">Nabídnout jízdu</button>
                 <button onclick="showSection('my-rides')" id="myRidesBtn" style="display:none;">🚗 Mnou nabízené jízdy</button>
                 <button onclick="showSection('map'); loadMapRides();">🗺️ Mapa</button>
-                <button onclick="showSection('reservations')" id="reservationsBtn" style="display:none;">🎫 Rezervace</button>
+                <button onclick="showSection('reservations')" id="reservationsBtn" style="display:none;">🎫 Moje rezervace</button>
                 <button onclick="showSection('login')" id="loginBtn">Přihlásit</button>
                 <button onclick="showSection('register')" id="registerBtn">Registrovat</button>
                 <button onclick="logout()" id="logoutBtn" style="display:none;">Odhlásit</button>
@@ -266,7 +266,7 @@
             buttons.forEach(btn => {
                 if (btn.textContent.includes('Hledat') && section === 'search') btn.classList.add('active');
                 if (btn.textContent.includes('Mapa') && section === 'map') btn.classList.add('active');
-                if (btn.textContent.includes('Rezervace') && section === 'reservations') btn.classList.add('active');
+                if (btn.textContent.includes('Moje rezervace') && section === 'reservations') btn.classList.add('active');
                 if (btn.textContent.includes('Mnou nabízené') && section === 'my-rides') btn.classList.add('active');
                 if (btn.textContent.includes('Chat') && section === 'chat') btn.classList.add('active');
                 if (btn.textContent.includes('Nabídnout') && section === 'offer') btn.classList.add('active');
