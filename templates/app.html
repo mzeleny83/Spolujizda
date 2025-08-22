@@ -675,7 +675,7 @@
                     <div class="ride">
                         <h3>${reservation.from_location} → ${reservation.to_location}</h3>
                         <div>🕐 ${reservation.departure_time} | 🎫 ${reservation.seats_reserved} místo | 💰 ${reservation.price_per_person} Kč</div>
-                        <div>🚗 Řidič: ${reservation.driver_name || 'Neznámý'}</div>
+                        <div>🚗 Řidič: ${reservation.driver_name || 'Neznámý'} | 📞 ${reservation.driver_phone || 'Bez telefonu'}</div>
                         <div style="margin-top: 10px;">
                             <span style="background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px;">✓ Rezervováno</span>
                             <button class="btn" onclick="openChat('passenger', ${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #17a2b8; margin-left: 10px; padding: 5px 15px;">💬 Chat s řidičem</button>
@@ -794,7 +794,7 @@
                 }
                 
                 let reservationsList = reservations.map(res => 
-                    `• ${res.passenger_name} (${res.passenger_phone}) - ${res.seats_reserved} místo`
+                    `• ${res.passenger_name}\n  📞 ${res.passenger_phone}\n  🎫 ${res.seats_reserved} místo\n`
                 ).join('\n');
                 
                 alert(`Rezervace pro jízdu:\n\n${reservationsList}`);

@@ -161,7 +161,7 @@ def reservations_test(user_id):
         c.execute('''
             SELECT res.id, res.seats_reserved, res.status, res.created_at,
                    r.from_location, r.to_location, r.departure_time, r.price_per_person,
-                   u.name as driver_name
+                   u.name as driver_name, u.phone as driver_phone
             FROM reservations res
             JOIN rides r ON res.ride_id = r.id
             JOIN users u ON r.user_id = u.id
@@ -183,7 +183,8 @@ def reservations_test(user_id):
                 'to_location': res[5],
                 'departure_time': res[6],
                 'price_per_person': res[7],
-                'driver_name': res[8]
+                'driver_name': res[8],
+                'driver_phone': res[9]
             })
         
         return jsonify(result), 200
