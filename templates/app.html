@@ -50,8 +50,10 @@
         <div id="search" class="section active">
             <h2>Hledat jízdy</h2>
             <form onsubmit="search(); return false;" class="search-form">
-                <input type="text" id="from" placeholder="Odkud (Praha, Brno, Ostrava...)" />
-                <input type="text" id="to" placeholder="Kam (Praha, Brno, Ostrava...)" />
+                <input type="text" id="from" placeholder="Odkud - město (Praha, Brno, Ostrava...)" />
+                <input type="text" id="fromStreet" placeholder="Odkud - ulice (volitelné)" />
+                <input type="text" id="to" placeholder="Kam - město (Praha, Brno, Ostrava...)" />
+                <input type="text" id="toStreet" placeholder="Kam - ulice (volitelné)" />
                 <div style="margin: 10px 0;">
                     <label>Vzdálenost od mé polohy: <span id="rangeValue">50</span> km</label><br>
                     <input type="range" id="searchRange" min="0" max="100" value="50" oninput="updateRangeValue(this.value)" style="width: 100%; margin: 5px 0;">
@@ -191,12 +193,20 @@
         <div id="offer" class="section">
             <h2>Nabídnout jízdu</h2>
             <div class="form-group">
-                <label>Odkud:</label>
-                <input type="text" id="offerFrom" placeholder="Odkud jedete" onkeypress="if(event.key==='Enter') offerRide()" />
+                <label>Odkud - město:</label>
+                <input type="text" id="offerFrom" placeholder="Praha, Brno, Ostrava..." onkeypress="if(event.key==='Enter') offerRide()" />
             </div>
             <div class="form-group">
-                <label>Kam:</label>
-                <input type="text" id="offerTo" placeholder="Kam jedete" onkeypress="if(event.key==='Enter') offerRide()" />
+                <label>Odkud - ulice (volitelné):</label>
+                <input type="text" id="offerFromStreet" placeholder="Náměstí Míru, Hlavní nádraží..." onkeypress="if(event.key==='Enter') offerRide()" />
+            </div>
+            <div class="form-group">
+                <label>Kam - město:</label>
+                <input type="text" id="offerTo" placeholder="Praha, Brno, Ostrava..." onkeypress="if(event.key==='Enter') offerRide()" />
+            </div>
+            <div class="form-group">
+                <label>Kam - ulice (volitelné):</label>
+                <input type="text" id="offerToStreet" placeholder="Náměstí Míru, Hlavní nádraží..." onkeypress="if(event.key==='Enter') offerRide()" />
             </div>
             <div class="form-group">
                 <label>Datum a čas odjezdu:</label>
@@ -384,10 +394,15 @@
                 return;
             }
 
+            const fromCity = document.getElementById('offerFrom').value;
+            const fromStreet = document.getElementById('offerFromStreet').value;
+            const toCity = document.getElementById('offerTo').value;
+            const toStreet = document.getElementById('offerToStreet').value;
+            
             const data = {
                 user_id: currentUser.id,
-                from_location: document.getElementById('offerFrom').value,
-                to_location: document.getElementById('offerTo').value,
+                from_location: fromStreet ? `${fromCity}, ${fromStreet}` : fromCity,
+                to_location: toStreet ? `${toCity}, ${toStreet}` : toCity,
                 departure_time: document.getElementById('offerTime').value,
                 available_seats: parseInt(document.getElementById('offerSeats').value),
                 price_per_person: parseInt(document.getElementById('offerPrice').value),
@@ -416,7 +431,13 @@
 
         async function search() {
             const from = document.getElementById('from').value.trim();
+            const fromStreet = document.getElementById('fromStreet').value.trim();
             const to = document.getElementById('to').value.trim();
+            const toStreet = document.getElementById('toStreet').value.trim();
+            
+            // Kombinuj město a ulici
+            const fromFull = fromStreet ? `${from}, ${fromStreet}` : from;
+            const toFull = toStreet ? `${to}, ${toStreet}` : to;
             const rangeSlider = document.getElementById('searchRange').value;
             const results = document.getElementById('searchResults');
             
@@ -431,8 +452,8 @@
             
             try {
                 let url = '/api/rides/search?';
-                if (from) url += `from=${encodeURIComponent(from)}&`;
-                if (to) url += `to=${encodeURIComponent(to)}&`;
+                if (fromFull) url += `from=${encodeURIComponent(fromFull)}&`;
+                if (toFull) url += `to=${encodeURIComponent(toFull)}&`;
                 
                 // Přidej GPS polohu a vzdálenost pokud je dostupná
                 if (currentLocation && rangeSlider > 0) {
