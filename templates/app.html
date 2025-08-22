@@ -770,13 +770,17 @@
                         <h3>${ride.from_location} → ${ride.to_location}</h3>
                         <div>🕐 ${ride.departure_time} | 👥 ${ride.available_seats} volných míst | 💰 ${ride.price_per_person} Kč</div>
                         <div>📋 Rezervace: ${ride.reservations_count || 0} | 💰 Příjem: ${(ride.reservations_count || 0) * ride.price_per_person} Kč</div>
+                        <div id="passengers-${ride.id}" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">⏳ Načítám pasažéry...</div>
                         <div style="margin-top: 10px;">
-                            <button class="btn" onclick="viewRideReservations(${ride.id})" style="background: #17a2b8; margin-right: 10px;">👥 Rezervace</button>
+                            <button class="btn" onclick="viewRideReservations(${ride.id})" style="background: #17a2b8; margin-right: 10px;">👥 Detail rezervací</button>
                             <button class="btn" onclick="openChat('driver', ${ride.id}, 'Pasažéři')" style="background: #6f42c1; margin-right: 10px;">💬 Chat</button>
                             <button class="btn btn-danger" onclick="cancelRide(${ride.id})">❌ Zrušit jízdu</button>
                         </div>
                     </div>
                 `).join('');
+                
+                // Načti pasažéry pro každou jízdu
+                rides.forEach(ride => loadPassengersForRide(ride.id));
                 
             } catch (error) {
                 myRidesList.innerHTML = '❌ Chyba při načítání: ' + error.message;
@@ -905,6 +909,34 @@
                 
             } catch (error) {
                 showMessage('Chyba při odesílání: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadPassengersForRide(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/reservations`);
+                const reservations = await response.json();
+                
+                const passengersDiv = document.getElementById(`passengers-${rideId}`);
+                
+                if (reservations.length === 0) {
+                    passengersDiv.innerHTML = '<div style="color: #666; font-style: italic;">🚕 Žádní pasažéři</div>';
+                    return;
+                }
+                
+                const passengersList = reservations.map(res => 
+                    `<div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #28a745;">
+                        <strong>👤 ${res.passenger_name}</strong> | 📞 ${res.passenger_phone} | 🎫 ${res.seats_reserved} místo
+                    </div>`
+                ).join('');
+                
+                passengersDiv.innerHTML = `<div style="font-weight: bold; margin-bottom: 8px;">👥 Pasažéři:</div>${passengersList}`;
+                
+            } catch (error) {
+                const passengersDiv = document.getElementById(`passengers-${rideId}`);
+                if (passengersDiv) {
+                    passengersDiv.innerHTML = '<div style="color: #dc3545;">❌ Chyba při načítání</div>';
+                }
             }
         }
         
