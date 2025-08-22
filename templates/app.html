@@ -970,16 +970,18 @@
                     body: JSON.stringify({
                         ride_id: reservationId,
                         rater_id: currentUser.id,
-                        rated_id: 0, // Bude se hledat podle jména
+                        driver_name: driverName,
                         rating: parseInt(rating),
                         comment: comment
                     })
                 });
                 
+                const result = await response.json();
+                
                 if (response.ok) {
                     showMessage('Řidič ohodnocen!');
                 } else {
-                    showMessage('Chyba při hodnocení', 'error');
+                    showMessage(result.error || 'Chyba při hodnocení', 'error');
                 }
             } catch (error) {
                 showMessage('Chyba: ' + error.message, 'error');
@@ -1031,7 +1033,7 @@
                 let reviewsText = `Recenze pro ${driverName}:\n\n`;
                 
                 reviews.forEach(review => {
-                    const stars = '⭐'.repeat(review.rating);
+                    const stars = '*'.repeat(review.rating);
                     const date = new Date(review.created_at).toLocaleDateString();
                     reviewsText += `${stars} (${review.rating}/5)\n`;
                     reviewsText += `"${review.comment}"\n`;

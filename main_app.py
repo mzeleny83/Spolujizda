@@ -1013,20 +1013,34 @@ def create_rating():
         
         if not rater_id:
             return jsonify({'error': 'Přihlášení je vyžadováno'}), 401
-        rated_id = data.get('rated_id')
+        
         rating = data.get('rating')
         comment = data.get('comment', '')
+        driver_name = data.get('driver_name')
         
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
+        
+        # Najdi rated_id podle jména
+        rated_id = None
+        if driver_name:
+            c.execute('SELECT id FROM users WHERE name = ?', (driver_name,))
+            user = c.fetchone()
+            if user:
+                rated_id = user[0]
+        
+        if not rated_id:
+            rated_id = data.get('rated_id', 0)
+        
         c.execute('INSERT INTO ratings (ride_id, rater_id, rated_id, rating, comment) VALUES (?, ?, ?, ?, ?)',
                  (ride_id, rater_id, rated_id, rating, comment))
         
         # Aktualizace průměrného hodnocení
-        c.execute('SELECT AVG(rating) FROM ratings WHERE rated_id = ?', (rated_id,))
-        avg_rating = c.fetchone()[0]
-        if avg_rating:
-            c.execute('UPDATE users SET rating = ? WHERE id = ?', (avg_rating, rated_id))
+        if rated_id:
+            c.execute('SELECT AVG(rating) FROM ratings WHERE rated_id = ?', (rated_id,))
+            avg_rating = c.fetchone()[0]
+            if avg_rating:
+                c.execute('UPDATE users SET rating = ? WHERE id = ?', (avg_rating, rated_id))
         
         conn.commit()
         conn.close()
