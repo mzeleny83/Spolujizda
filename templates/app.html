@@ -252,6 +252,13 @@
                 if (btn.textContent.includes('Přihlásit') && section === 'login') btn.classList.add('active');
                 if (btn.textContent.includes('Registrovat') && section === 'register') btn.classList.add('active');
             });
+            
+            // Automatické načítání dat při přepnutí na sekci
+            if (section === 'reservations') {
+                loadReservations();
+            } else if (section === 'my-rides') {
+                loadMyRides();
+            }
         }
 
         function updateUI() {
