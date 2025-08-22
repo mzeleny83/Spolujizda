@@ -525,6 +525,11 @@ def search_rides():
         max_price = request.args.get('max_price', type=int)
         user_id = request.args.get('user_id', type=int)
         include_own = request.args.get('include_own', 'true').lower() == 'true'
+        
+        # GPS parametry
+        user_lat = request.args.get('lat', type=float)
+        user_lng = request.args.get('lng', type=float)
+        search_range = request.args.get('range', type=int)
 
         # Základní dotaz
         query = "SELECT r.*, u.name, u.rating FROM rides r LEFT JOIN users u ON r.user_id = u.id"
@@ -558,18 +563,51 @@ def search_rides():
         rides = c.fetchall()
         conn.close()
 
+        # Města a jejich souřadnice pro výpočet vzdálenosti
+        cities = {
+            'Praha': [50.0755, 14.4378],
+            'Brno': [49.1951, 16.6068],
+            'Ostrava': [49.8209, 18.2625],
+            'Plzeň': [49.7384, 13.3736],
+            'Liberec': [50.7663, 15.0543],
+            'Olomouc': [49.5938, 17.2509],
+            'Zlín': [49.2265, 17.6679],
+            'Rájec Jestřebí': [49.4186, 16.7486],
+            'České Budějovice': [48.9745, 14.4743],
+            'Hradec Králové': [50.2103, 15.8327]
+        }
+
+        def calculate_distance(lat1, lng1, lat2, lng2):
+            import math
+            R = 6371  # Poloměr Země v km
+            dlat = math.radians(lat2 - lat1)
+            dlng = math.radians(lng2 - lng1)
+            a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng/2) * math.sin(dlng/2)
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            return R * c
+
         result = []
         current_user_id = request.args.get('user_id', type=int)
 
         for ride in rides:
             waypoints = json.loads(ride[7]) if ride[7] else []
             
+            # Výpočet vzdálenosti od uživatele
+            distance = 0
+            if user_lat and user_lng and search_range:
+                # Použij souřadnice města
+                from_coords = cities.get(ride[2])
+                if from_coords:
+                    distance = calculate_distance(user_lat, user_lng, from_coords[0], from_coords[1])
+                    # Filtruj podle vzdálenosti
+                    if distance > search_range:
+                        continue
+            
             # Zjištění, zda je jízda vlastní nebo rezervovaná
             is_own = False
             if current_user_id and ride[1] == current_user_id:
                 is_own = True
 
-            # Tady by v reálné aplikaci byla kontrola rezervací
             is_reserved = False
 
             result.append({
@@ -583,10 +621,15 @@ def search_rides():
                 'available_seats': ride[5],
                 'price_per_person': ride[6],
                 'route_waypoints': waypoints,
-                'distance': 0,  # Výpočet vzdálenosti by byl zde
+                'distance': round(distance, 1),
                 'is_own': is_own,
                 'is_reserved': is_reserved
             })
+        
+        # Seřadí podle vzdálenosti
+        if user_lat and user_lng:
+            result.sort(key=lambda x: x['distance'])
+            
         return jsonify(result)
     except Exception as e:
         import traceback
