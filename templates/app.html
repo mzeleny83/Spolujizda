@@ -204,6 +204,23 @@
         </div>
     </div>
 
+    <!-- Plovoucí chat okno -->
+    <div id="floatingChat" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 350px; height: 400px; background: white; border: 2px solid #007bff; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 1000;">
+        <div style="background: #007bff; color: white; padding: 10px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <span id="floatingChatTitle">💬 Chat</span>
+            <button onclick="closeFloatingChat()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+        </div>
+        <div id="floatingChatMessages" style="height: 280px; overflow-y: auto; padding: 10px; background: #f9f9f9;">
+            <p style="text-align: center; color: #666;">Načítám zprávy...</p>
+        </div>
+        <div style="padding: 10px; border-top: 1px solid #ddd;">
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="floatingMessageInput" placeholder="Zpráva..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendFloatingMessage()">
+                <button onclick="sendFloatingMessage()" style="background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">📨</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
 
@@ -871,13 +888,85 @@
             currentChatRide = rideId;
             currentChatType = type;
             
-            console.log('Opening chat:', type, rideId, partnerName); // Debug
+            console.log('Opening floating chat:', type, rideId, partnerName);
             
-            document.getElementById('chatTitle').textContent = `💬 Chat - ${partnerName}`;
-            document.getElementById('chatInput').style.display = 'block';
+            // Otevři plovoucí chat
+            document.getElementById('floatingChatTitle').textContent = `💬 ${partnerName}`;
+            document.getElementById('floatingChat').style.display = 'block';
+            document.getElementById('floatingMessageInput').value = '';
             
-            showSection('chat');
-            loadChatMessages(rideId);
+            loadFloatingChatMessages(rideId);
+        }
+        
+        function closeFloatingChat() {
+            document.getElementById('floatingChat').style.display = 'none';
+        }
+        
+        async function loadFloatingChatMessages(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/messages`);
+                const messages = await response.json();
+                
+                const chatMessages = document.getElementById('floatingChatMessages');
+                
+                if (messages.length === 0) {
+                    chatMessages.innerHTML = '<p style="text-align: center; color: #666; font-size: 14px;">Zatím žádné zprávy...</p>';
+                    return;
+                }
+                
+                chatMessages.innerHTML = messages.map(msg => {
+                    const isOwn = msg.sender_id === currentUser.id;
+                    const align = isOwn ? 'right' : 'left';
+                    const bgColor = isOwn ? '#007bff' : '#6c757d';
+                    
+                    return `
+                        <div style="text-align: ${align}; margin: 8px 0;">
+                            <div style="display: inline-block; background: ${bgColor}; color: white; padding: 6px 10px; border-radius: 12px; max-width: 80%; font-size: 14px;">
+                                <div style="font-size: 11px; opacity: 0.8;">${msg.sender_name}</div>
+                                <div>${msg.message}</div>
+                                <div style="font-size: 10px; opacity: 0.6;">${new Date(msg.created_at).toLocaleTimeString()}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Scroll na konec
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+            } catch (error) {
+                document.getElementById('floatingChatMessages').innerHTML = '❌ Chyba při načítání zpráv';
+            }
+        }
+        
+        async function sendFloatingMessage() {
+            const messageInput = document.getElementById('floatingMessageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !currentUser || !currentChatRide) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/messages/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        ride_id: currentChatRide,
+                        sender_id: currentUser.id,
+                        message: message
+                    })
+                });
+                
+                if (response.ok) {
+                    messageInput.value = '';
+                    loadFloatingChatMessages(currentChatRide);
+                } else {
+                    showMessage('Chyba při odesílání zprávy', 'error');
+                }
+                
+            } catch (error) {
+                showMessage('Chyba při odesílání: ' + error.message, 'error');
+            }
         }
         
         async function loadChatMessages(rideId) {
