@@ -1442,7 +1442,11 @@
         }
         
         function showMyLocation() {
-            if (!searchMap) initSearchMap();
+            if (!searchMap) {
+                initSearchMap();
+                setTimeout(showMyLocation, 500);
+                return;
+            }
             
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
