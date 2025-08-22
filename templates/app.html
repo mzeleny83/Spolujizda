@@ -1105,23 +1105,31 @@
             const comment = document.getElementById('ratingComment').value.trim();
             
             try {
+                let requestData = {
+                    ride_id: currentRatingData.reservationId,
+                    rater_id: currentUser.id,
+                    rating: currentRating,
+                    comment: comment
+                };
+                
+                if (currentRatingData.type === 'driver') {
+                    requestData.driver_name = currentRatingData.driverName;
+                } else if (currentRatingData.type === 'passenger') {
+                    requestData.rated_id = 0; // Bude se hledat podle jména
+                }
+                
                 const response = await fetch('/api/ratings/create', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        ride_id: currentRatingData.reservationId,
-                        rater_id: currentUser.id,
-                        driver_name: currentRatingData.driverName,
-                        rating: currentRating,
-                        comment: comment
-                    })
+                    body: JSON.stringify(requestData)
                 });
                 
                 const result = await response.json();
                 
                 if (response.ok) {
-                    showMessage('Řidič úspěšně ohodnocen!');
-                    showSection('reservations');
+                    const userType = currentRatingData.type === 'driver' ? 'Řidič' : 'Pasažér';
+                    showMessage(`${userType} úspěšně ohodnocen!`);
+                    showSection(currentRatingData.type === 'driver' ? 'reservations' : 'my-rides');
                 } else {
                     showMessage(result.error || 'Chyba při hodnocení', 'error');
                 }
@@ -1130,36 +1138,17 @@
             }
         }
         
-        async function ratePassenger(passengerName, rideId) {
-            const rating = prompt(`Hodnocení pasažéra ${passengerName} (1-5 hvězdiček):`);
-            if (!rating || rating < 1 || rating > 5) {
-                showMessage('Zadejte hodnocení 1-5', 'error');
-                return;
-            }
+        function ratePassenger(passengerName, rideId) {
+            currentRatingData = {
+                reservationId: rideId,
+                passengerName: passengerName,
+                type: 'passenger'
+            };
             
-            const comment = prompt('Komentář (volitelný):') || '';
-            
-            try {
-                const response = await fetch('/api/ratings/create', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        ride_id: rideId,
-                        rater_id: currentUser.id,
-                        rated_id: 0, // Bude se hledat podle jména
-                        rating: parseInt(rating),
-                        comment: comment
-                    })
-                });
-                
-                if (response.ok) {
-                    showMessage('Pasažér ohodnocen!');
-                } else {
-                    showMessage('Chyba při hodnocení', 'error');
-                }
-            } catch (error) {
-                showMessage('Chyba: ' + error.message, 'error');
-            }
+            document.getElementById('ratingUserName').textContent = `Hodnotit pasažéra: ${passengerName}`;
+            document.getElementById('ratingComment').value = '';
+            setRating(0);
+            showSection('rating');
         }
         
         async function showDriverReviews(driverName) {
