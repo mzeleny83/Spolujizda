@@ -962,6 +962,48 @@ def send_message():
         return jsonify({'error': str(e)}), 500
 
 # API pro hodnocení
+@app.route('/api/users/<user_name>/reviews', methods=['GET'])
+def get_user_reviews(user_name):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Najdi user_id podle jména
+        c.execute('SELECT id FROM users WHERE name = ?', (user_name,))
+        user = c.fetchone()
+        
+        if not user:
+            return jsonify({'error': 'Uživatel nenalezen'}), 404
+        
+        user_id = user[0]
+        
+        # Získej hodnocení
+        c.execute('''
+            SELECT r.rating, r.comment, r.created_at, u.name as rater_name
+            FROM ratings r
+            JOIN users u ON r.rater_id = u.id
+            WHERE r.rated_id = ? AND r.comment IS NOT NULL AND r.comment != ''
+            ORDER BY r.created_at DESC
+            LIMIT 10
+        ''', (user_id,))
+        
+        reviews = c.fetchall()
+        conn.close()
+        
+        result = []
+        for review in reviews:
+            result.append({
+                'rating': review[0],
+                'comment': review[1],
+                'created_at': review[2],
+                'rater_name': review[3]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/ratings/create', methods=['POST'])
 def create_rating():
     try:
