@@ -890,6 +890,45 @@ def create_reservation():
 def get_user_reservations_simple(user_id):
     return jsonify([])
 
+@app.route('/api/reservations/driver/<int:driver_id>')
+def get_driver_reservations(driver_id):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''
+            SELECT res.id, res.seats_reserved, res.status, res.created_at,
+                   r.from_location, r.to_location, r.departure_time, r.id as ride_id,
+                   u.name as passenger_name, u.id as passenger_id
+            FROM reservations res
+            JOIN rides r ON res.ride_id = r.id
+            JOIN users u ON res.passenger_id = u.id
+            WHERE r.user_id = ? AND res.status = 'confirmed'
+            ORDER BY r.departure_time DESC
+        ''', (driver_id,))
+        
+        reservations = c.fetchall()
+        conn.close()
+        
+        result = []
+        for res in reservations:
+            result.append({
+                'reservation_id': res[0],
+                'seats_reserved': res[1],
+                'status': res[2],
+                'created_at': res[3],
+                'from_location': res[4],
+                'to_location': res[5],
+                'departure_time': res[6],
+                'ride_id': res[7],
+                'passenger_name': res[8],
+                'passenger_id': res[9]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/rides/cancel/<int:ride_id>', methods=['DELETE'])
 def cancel_ride(ride_id):
     try:
