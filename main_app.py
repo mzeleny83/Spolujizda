@@ -1318,6 +1318,69 @@ def send_notification():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/users/location', methods=['POST'])
+def update_user_location():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        lat = data.get('lat')
+        lng = data.get('lng')
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Vytvoř tabulku pro polohy pokud neexistuje
+        c.execute('''CREATE TABLE IF NOT EXISTS user_locations
+                     (user_id INTEGER PRIMARY KEY,
+                      lat REAL NOT NULL,
+                      lng REAL NOT NULL,
+                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (user_id) REFERENCES users (id))''')
+        
+        # Aktualizuj nebo vlož polohu
+        c.execute('''INSERT OR REPLACE INTO user_locations (user_id, lat, lng, updated_at)
+                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)''', (user_id, lat, lng))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Poloha aktualizována'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/locations', methods=['GET'])
+def get_user_locations():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Získej polohy uživatelů (pouze posledních 5 minut)
+        c.execute('''
+            SELECT ul.user_id, ul.lat, ul.lng, ul.updated_at, u.name
+            FROM user_locations ul
+            JOIN users u ON ul.user_id = u.id
+            WHERE ul.updated_at > datetime('now', '-5 minutes')
+        ''')
+        
+        locations = c.fetchall()
+        conn.close()
+        
+        result = []
+        for loc in locations:
+            result.append({
+                'user_id': loc[0],
+                'lat': loc[1],
+                'lng': loc[2],
+                'updated_at': loc[3],
+                'user_name': loc[4]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':
