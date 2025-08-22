@@ -1303,7 +1303,11 @@
         }
         
         function updateLocationOnce() {
-            if (!searchMap) return;
+            if (!searchMap) {
+                initSearchMap();
+                setTimeout(updateLocationOnce, 500);
+                return;
+            }
             
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
