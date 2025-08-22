@@ -340,6 +340,7 @@
                         phone: document.getElementById('loginPhone').value,
                         rating: result.rating || 5.0
                     };
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     updateUI();
                     showMessage('Přihlášení úspěšné!');
                     showSection('search');
@@ -353,6 +354,7 @@
 
         function logout() {
             currentUser = null;
+            localStorage.removeItem('currentUser');
             updateUI();
             showMessage('Odhlášení úspěšné!');
             showSection('search');
@@ -1199,7 +1201,20 @@
             }
         }
         
+        // Kontrola uloženého přihlášení
+        function checkSavedLogin() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                } catch (e) {
+                    localStorage.removeItem('currentUser');
+                }
+            }
+        }
+        
         // Inicializace
+        checkSavedLogin();
         updateUI();
     </script>
 </body>

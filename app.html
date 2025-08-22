@@ -1201,10 +1201,6 @@
             }
         }
         
-        // Inicializace
-        checkSavedLogin();
-        updateUI();
-        
         // Kontrola uloženého přihlášení
         function checkSavedLogin() {
             const savedUser = localStorage.getItem('currentUser');
@@ -1216,6 +1212,10 @@
                 }
             }
         }
+        
+        // Inicializace
+        checkSavedLogin();
+        updateUI();
     </script>
 </body>
 </html>
