@@ -650,7 +650,7 @@ def get_all_rides():
     try:
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
-        c.execute('''SELECT r.*, u.name FROM rides r 
+        c.execute('''SELECT r.*, u.name, u.rating FROM rides r 
                      LEFT JOIN users u ON r.user_id = u.id
                      ORDER BY r.created_at DESC''')
         rides = c.fetchall()
@@ -662,6 +662,7 @@ def get_all_rides():
                 'id': ride[0],
                 'user_id': ride[1],
                 'driver_name': (ride[9] if len(ride) > 9 else None) or 'Neznámý řidič',
+                'driver_rating': (ride[10] if len(ride) > 10 else None) or 5.0,
                 'from_location': ride[2],
                 'to_location': ride[3],
                 'departure_time': ride[4],
