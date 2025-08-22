@@ -433,7 +433,7 @@
                 
                 // Přidej GPS polohu a vzdálenost pokud je dostupná
                 if (currentLocation && rangeSlider > 0) {
-                    const actualRange = Math.round(Math.pow(rangeSlider / 20, 2));
+                    const actualRange = Math.round(Math.pow(rangeSlider / 100 * 300, 1.5) / 10);
                     url += `lat=${currentLocation.lat}&lng=${currentLocation.lng}&range=${actualRange}&`;
                 }
                 
@@ -1253,27 +1253,27 @@
         function updateRangeValue(value) {
             let actualRange;
             if (value == 0) {
-                actualRange = 'neomezený';
+                actualRange = 0;
             } else {
-                // Logaritmická škála: 1-500 km
-                actualRange = Math.round(Math.pow(value / 20, 2));
+                // Logaritmická škála: 0-300 km
+                actualRange = Math.round(Math.pow(value / 100 * 300, 1.5) / 10);
                 if (actualRange < 1) actualRange = 1;
-                if (actualRange > 500) actualRange = 500;
+                if (actualRange > 300) actualRange = 300;
             }
             
             document.getElementById('rangeValue').textContent = actualRange;
             
-            if (searchRadius && currentLocation && value > 0) {
+            if (searchRadius && currentLocation) {
                 searchMap.removeLayer(searchRadius);
+            }
+            
+            if (currentLocation && actualRange > 0) {
                 searchRadius = L.circle([currentLocation.lat, currentLocation.lng], {
                     color: '#007bff',
                     fillColor: '#007bff',
                     fillOpacity: 0.1,
                     radius: actualRange * 1000
                 }).addTo(searchMap);
-            } else if (searchRadius && value == 0) {
-                searchMap.removeLayer(searchRadius);
-                searchRadius = null;
             }
         }
         
@@ -1313,13 +1313,15 @@
                         // Přidej kruh vzdálenosti
                         const rangeSlider = document.getElementById('searchRange').value;
                         if (rangeSlider > 0) {
-                            const actualRange = Math.round(Math.pow(rangeSlider / 20, 2));
-                            searchRadius = L.circle([lat, lng], {
-                                color: '#007bff',
-                                fillColor: '#007bff',
-                                fillOpacity: 0.1,
-                                radius: actualRange * 1000
-                            }).addTo(searchMap);
+                            const actualRange = Math.round(Math.pow(rangeSlider / 100 * 300, 1.5) / 10);
+                            if (actualRange > 0) {
+                                searchRadius = L.circle([lat, lng], {
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.1,
+                                    radius: actualRange * 1000
+                                }).addTo(searchMap);
+                            }
                         }
                         
                         // Vycentruj mapu
