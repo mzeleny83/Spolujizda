@@ -272,8 +272,10 @@
             } else if (section === 'search') {
                 setTimeout(() => {
                     if (!searchMap) initSearchMap();
-                    autoUpdateLocation();
                 }, 100);
+                setTimeout(() => {
+                    autoUpdateLocation();
+                }, 1000);
             }
         }
 
@@ -1339,12 +1341,55 @@
                         }
                         
                         myLocationMarker.bindPopup('📍 Vaše aktuální poloha (automaticky aktualizováno)');
+                        
+                        // Načti a zobraz aktivní řidiče
+                        loadActiveDrivers();
                     },
                     (error) => {
                         console.log('GPS nedostupné:', error);
                     },
                     { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
                 );
+            }
+        }
+        
+        async function loadActiveDrivers() {
+            try {
+                const response = await fetch('/api/users/locations');
+                const locations = await response.json();
+                
+                // Odstraň staré markery řidičů
+                Object.keys(userMarkers).forEach(userId => {
+                    if (userMarkers[userId] && searchMap.hasLayer(userMarkers[userId])) {
+                        searchMap.removeLayer(userMarkers[userId]);
+                    }
+                });
+                userMarkers = {};
+                
+                // Přidej nové markery aktivních řidičů
+                locations.forEach(loc => {
+                    if (loc.user_id !== currentUser?.id) { // Nezobrazuj sebe
+                        const marker = L.marker([loc.lat, loc.lng], {
+                            icon: L.divIcon({
+                                html: '<div style="background: #28a745; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">🚗</div>',
+                                iconSize: [25, 25],
+                                iconAnchor: [12, 12]
+                            })
+                        }).addTo(searchMap);
+                        
+                        marker.bindPopup(`
+                            <div style="text-align: center;">
+                                <h4>🚗 ${loc.user_name}</h4>
+                                <p>Aktivní řidič</p>
+                                <small>Aktualizováno: ${new Date(loc.updated_at).toLocaleTimeString()}</small>
+                            </div>
+                        `);
+                        
+                        userMarkers[loc.user_id] = marker;
+                    }
+                });
+            } catch (error) {
+                console.log('Nelze načíst aktivní řidiče:', error);
             }
         }
         
