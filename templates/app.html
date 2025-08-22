@@ -53,10 +53,10 @@
                 <input type="text" id="from" placeholder="Odkud (Praha, Brno, Ostrava...)" />
                 <input type="text" id="to" placeholder="Kam (Praha, Brno, Ostrava...)" />
                 <div style="margin: 10px 0;">
-                    <label>Vzdálenost od mé polohy: <span id="rangeValue">10</span> km</label><br>
-                    <input type="range" id="searchRange" min="1" max="50" value="10" oninput="updateRangeValue(this.value)" style="width: 100%; margin: 5px 0;">
+                    <label>Vzdálenost od mé polohy: <span id="rangeValue">50</span> km</label><br>
+                    <input type="range" id="searchRange" min="0" max="100" value="50" oninput="updateRangeValue(this.value)" style="width: 100%; margin: 5px 0;">
                 </div>
-                <button type="submit" class="btn">🔍 Hledat</button>
+                <button type="submit" class="btn">🔍 Hledat jízdy v zadaném okolí</button>
                 <button type="button" class="btn btn-success" onclick="showAll()">📋 Všechny jízdy</button>
                 <button type="button" class="btn" onclick="showMyLocation()" style="background: #17a2b8;">📍 Moje poloha</button>
             </form>
@@ -414,7 +414,7 @@
         async function search() {
             const from = document.getElementById('from').value.trim();
             const to = document.getElementById('to').value.trim();
-            const range = document.getElementById('searchRange').value;
+            const rangeSlider = document.getElementById('searchRange').value;
             const results = document.getElementById('searchResults');
             
             results.innerHTML = '⏳ Hledám jízdy...';
@@ -422,7 +422,7 @@
             // Inicializuj mapu pokud není
             if (!searchMap) {
                 initSearchMap();
-                setTimeout(() => search(), 500); // Znovu spusť po inicializaci
+                setTimeout(() => search(), 500);
                 return;
             }
             
@@ -431,9 +431,10 @@
                 if (from) url += `from=${encodeURIComponent(from)}&`;
                 if (to) url += `to=${encodeURIComponent(to)}&`;
                 
-                // Přidej GPS polohu pokud je dostupná
-                if (currentLocation) {
-                    url += `lat=${currentLocation.lat}&lng=${currentLocation.lng}&range=${range}&`;
+                // Přidej GPS polohu a vzdálenost pokud je dostupná
+                if (currentLocation && rangeSlider > 0) {
+                    const actualRange = Math.round(Math.pow(rangeSlider / 20, 2));
+                    url += `lat=${currentLocation.lat}&lng=${currentLocation.lng}&range=${actualRange}&`;
                 }
                 
                 const response = await fetch(url);
@@ -1250,15 +1251,29 @@
         let currentLocation = null;
         
         function updateRangeValue(value) {
-            document.getElementById('rangeValue').textContent = value;
-            if (searchRadius && currentLocation) {
+            let actualRange;
+            if (value == 0) {
+                actualRange = 'neomezený';
+            } else {
+                // Logaritmická škála: 1-500 km
+                actualRange = Math.round(Math.pow(value / 20, 2));
+                if (actualRange < 1) actualRange = 1;
+                if (actualRange > 500) actualRange = 500;
+            }
+            
+            document.getElementById('rangeValue').textContent = actualRange;
+            
+            if (searchRadius && currentLocation && value > 0) {
                 searchMap.removeLayer(searchRadius);
                 searchRadius = L.circle([currentLocation.lat, currentLocation.lng], {
                     color: '#007bff',
                     fillColor: '#007bff',
                     fillOpacity: 0.1,
-                    radius: value * 1000
+                    radius: actualRange * 1000
                 }).addTo(searchMap);
+            } else if (searchRadius && value == 0) {
+                searchMap.removeLayer(searchRadius);
+                searchRadius = null;
             }
         }
         
@@ -1296,13 +1311,16 @@
                         }).addTo(searchMap);
                         
                         // Přidej kruh vzdálenosti
-                        const range = document.getElementById('searchRange').value;
-                        searchRadius = L.circle([lat, lng], {
-                            color: '#007bff',
-                            fillColor: '#007bff',
-                            fillOpacity: 0.1,
-                            radius: range * 1000
-                        }).addTo(searchMap);
+                        const rangeSlider = document.getElementById('searchRange').value;
+                        if (rangeSlider > 0) {
+                            const actualRange = Math.round(Math.pow(rangeSlider / 20, 2));
+                            searchRadius = L.circle([lat, lng], {
+                                color: '#007bff',
+                                fillColor: '#007bff',
+                                fillOpacity: 0.1,
+                                radius: actualRange * 1000
+                            }).addTo(searchMap);
+                        }
                         
                         // Vycentruj mapu
                         searchMap.setView([lat, lng], 12);
