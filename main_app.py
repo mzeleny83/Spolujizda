@@ -373,9 +373,13 @@ def init_db():
 def register():
     try:
         data = request.get_json()
-        name = data.get('name')
+        name = data.get('name', '').strip()
         phone = data.get('phone')
         password = data.get('password')
+        
+        # Validace jména
+        if len(name) < 2 or name.lower() in ['test', 'user', 'anonym', 'guest', 'admin', 'null', 'undefined']:
+            return jsonify({'error': 'Zadejte platné jméno (minimálně 2 znaky, ne generické)'}), 400
         
         email = data.get('email', '').strip()
         password_confirm = data.get('password_confirm')

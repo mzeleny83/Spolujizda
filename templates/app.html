@@ -320,6 +320,12 @@
                 return;
             }
             
+            const name = document.getElementById('regName').value.trim();
+            if (name.length < 2 || ['test', 'user', 'anonym', 'guest', 'admin'].includes(name.toLowerCase())) {
+                showMessage('Zadejte platné jméno (minimálně 2 znaky, ne generické)', 'error');
+                return;
+            }
+            
             const data = {
                 name: document.getElementById('regName').value,
                 phone: document.getElementById('regPhone').value,
@@ -391,6 +397,20 @@
         async function offerRide() {
             if (!currentUser) {
                 showMessage('Musíte být přihlášeni!', 'error');
+                return;
+            }
+            
+            const validCities = ['Praha', 'Brno', 'Ostrava', 'Plzeň', 'Liberec', 'Olomouc', 'Zlín', 'České Budějovice', 'Hradec Králové', 'Pardubice', 'Havířov', 'Kladno', 'Most', 'Opava', 'Frýdek-Místek', 'Karviná', 'Jihlava', 'Teplice', 'Děčín', 'Karlovy Vary', 'Jablonec nad Nisou', 'Mladá Boleslav', 'Prostějov', 'Přerov', 'Česká Lípa', 'Uherské Hradiště', 'Třebíč', 'Rájec Jestřebí'];
+            
+            const fromCity = document.getElementById('offerFrom').value.trim();
+            const toCity = document.getElementById('offerTo').value.trim();
+            
+            if (!validCities.includes(fromCity)) {
+                showMessage('Vyberte platné české město pro výchozí bod', 'error');
+                return;
+            }
+            if (!validCities.includes(toCity)) {
+                showMessage('Vyberte platné české město pro cílový bod', 'error');
                 return;
             }
 
