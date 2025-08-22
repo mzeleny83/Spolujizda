@@ -1295,6 +1295,21 @@ def payment_cancel():
     </html>
     '''
 
+@app.route('/api/notifications/send', methods=['POST'])
+def send_notification():
+    try:
+        data = request.get_json()
+        recipient = data.get('recipient')
+        title = data.get('title')
+        body = data.get('body')
+        
+        print(f"📱 Notifikace pro {recipient}: {title} - {body}")
+        
+        return jsonify({'message': 'Notifikace odeslána'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':
