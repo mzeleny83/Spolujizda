@@ -451,9 +451,9 @@
 
         async function search() {
             const from = document.getElementById('from').value.trim();
-            const fromStreet = document.getElementById('fromStreet').value.trim();
+            const fromStreet = document.getElementById('fromStreet') ? document.getElementById('fromStreet').value.trim() : '';
             const to = document.getElementById('to').value.trim();
-            const toStreet = document.getElementById('toStreet').value.trim();
+            const toStreet = document.getElementById('toStreet') ? document.getElementById('toStreet').value.trim() : '';
             
             // Kombinuj město a ulici
             const fromFull = fromStreet ? `${from}, ${fromStreet}` : from;
@@ -462,13 +462,6 @@
             const results = document.getElementById('searchResults');
             
             results.innerHTML = '⏳ Hledám jízdy...';
-            
-            // Inicializuj mapu pokud není
-            if (!searchMap) {
-                initSearchMap();
-                setTimeout(() => search(), 500);
-                return;
-            }
             
             try {
                 let url = '/api/rides/search?';
