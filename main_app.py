@@ -1535,13 +1535,67 @@ def create_checkout_session():
         conn.commit()
         conn.close()
         
-        # Platba pouze provize na tvůj účet, zbytek v hotovosti
-        paypal_url = f'https://www.paypal.com/paypalme/mzeleny/{commission}CZK'
+        # QR platební brána s nízkými poplatky
+        qr_payment_url = f'{request.host_url}qr-payment?ride_id={ride_id}&amount={commission}&commission={commission}&driver_amount={driver_amount}'
         
-        return jsonify({'checkout_url': paypal_url}), 200
+        return jsonify({'checkout_url': qr_payment_url}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/qr-payment')
+def qr_payment():
+    ride_id = request.args.get('ride_id')
+    amount = request.args.get('amount', '0')
+    commission = request.args.get('commission', '0')
+    driver_amount = request.args.get('driver_amount', '0')
+    
+    # QR kód pro bankovní platbu
+    qr_data = f'SPD*1.0*ACC:CZ2501000001235652280207*AM:{commission}*CC:CZK*MSG:Sveztese.cz #{ride_id}*X-VS:{ride_id}'
+    
+    return f'''
+    <html>
+    <head>
+        <title>QR Platba - Jízda #{ride_id}</title>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; text-align: center; }}
+            .qr-code {{ margin: 20px 0; }}
+            .amount {{ font-size: 24px; font-weight: bold; color: #007bff; margin: 20px 0; }}
+            .btn {{ background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 10px; text-decoration: none; display: inline-block; }}
+            .btn-cancel {{ background: #dc3545; }}
+        </style>
+    </head>
+    <body>
+        <h1>📱 QR Platba</h1>
+        
+        <div class="amount">
+            K úhradě: {commission} Kč
+        </div>
+        
+        <div class="qr-code">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_data}" alt="QR kód pro platbu">
+        </div>
+        
+        <p><strong>Instrukce:</strong></p>
+        <ol style="text-align: left;">
+            <li>Otevřete bankovní aplikaci</li>
+            <li>Naskenujte QR kód</li>
+            <li>Potvrdte platbu</li>
+            <li>Klikněte "Platba provedena"</li>
+        </ol>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Účet:</strong> 123-5652280207/0100</p>
+            <p><strong>Variabilní symbol:</strong> {ride_id}</p>
+            <p><strong>Částka:</strong> {commission} Kč</p>
+        </div>
+        
+        <a href="/payment-success?ride_id={ride_id}&amount={amount}&commission={commission}" class="btn">✓ Platba provedena</a>
+        <a href="/payment-cancel" class="btn btn-cancel">❌ Zrušit</a>
+    </body>
+    </html>
+    '''
 
 @app.route('/payment-gateway')
 def payment_gateway():
