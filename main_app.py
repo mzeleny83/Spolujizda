@@ -1537,7 +1537,7 @@ def create_checkout_session():
         
         # Platba pouze provize na tvůj účet, zbytek v hotovosti
         commission_eur = round(commission / 25, 2)  # Převod CZK na EUR (1 EUR = cca 25 CZK)
-        paypal_url = f'https://www.paypal.com/paypalme/mzeleny/{commission_eur}EUR'
+        paypal_url = f'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=m.zeleny@volny.cz&item_name=Poplatek+Sveztese.cz+#{ride_id}&amount={commission_eur}&currency_code=EUR&return={request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}&cancel_return={request.host_url}payment-cancel'
         
         return jsonify({'checkout_url': paypal_url}), 200
         
