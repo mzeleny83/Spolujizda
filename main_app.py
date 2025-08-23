@@ -1456,7 +1456,7 @@ def get_all_users():
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         c.execute('''
-            SELECT u.id, u.name, u.phone, u.rating, u.total_rides, u.verified, u.last_active,
+            SELECT u.id, u.name, u.phone, u.rating, u.total_rides, u.verified, u.created_at,
                    COUNT(DISTINCT rh1.id) as rides_as_driver,
                    COUNT(DISTINCT rh2.id) as rides_as_passenger
             FROM users u
@@ -1478,7 +1478,7 @@ def get_all_users():
                 'rating': user[3] or 5.0,
                 'total_rides': user[4] or 0,
                 'verified': user[5] or False,
-                'last_active': user[6],
+                'last_active': user[6],  # created_at jako last_active
                 'rides_as_driver': user[7] or 0,
                 'rides_as_passenger': user[8] or 0
             })
@@ -1675,7 +1675,7 @@ def search_users():
         c = conn.cursor()
         
         sql = '''
-            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.last_active
+            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.created_at
             FROM users u
             WHERE u.name LIKE ?
         '''
