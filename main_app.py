@@ -54,6 +54,27 @@ user_locations = {}
 
 print("--- main_app.py is being loaded! ---")
 
+@app.route('/robots.txt', methods=['GET'])
+def robots_txt_priority():
+    response = '''User-agent: *
+Allow: /
+Allow: /search
+Allow: /terms
+Allow: /privacy
+Disallow: /api/
+Disallow: /admin/
+Disallow: /debug
+Disallow: /test
+Disallow: /payment-*
+Disallow: /qr-payment
+
+Sitemap: https://sveztese.cz/sitemap.xml'''
+    
+    return Response(response, mimetype='text/plain', headers={
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*'
+    })
+
 @app.route('/')
 def home():
     return render_template('app.html')
@@ -65,6 +86,15 @@ def fixed_home():
 @app.route('/debug')
 def debug_panel():
     return render_template('debug.html')
+
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'OK',
+        'timestamp': datetime.datetime.now().isoformat(),
+        'robots_txt': f'{request.host_url}robots.txt',
+        'sitemap_xml': f'{request.host_url}sitemap.xml'
+    }), 200
 
 @app.route('/test')
 def test_page():
@@ -1520,9 +1550,6 @@ def get_recurring_rides():
 
 @app.route('/<path:filename>')
 def serve_static(filename):
-    # Speciální handling pro robots.txt
-    if filename == 'robots.txt':
-        return send_from_directory('static', 'robots.txt', mimetype='text/plain')
     return send_from_directory('static', filename)
 
 # API pro platby (mock implementace)
@@ -1740,27 +1767,7 @@ def terms():
 def privacy():
     return render_template('privacy.html')
 
-@app.route('/robots.txt', methods=['GET'])
-def robots_txt():
-    response = '''User-agent: *
-Allow: /
-Allow: /search
-Allow: /terms
-Allow: /privacy
-Disallow: /api/
-Disallow: /admin/
-Disallow: /debug
-Disallow: /test
-Disallow: /payment-*
-Disallow: /qr-payment
 
-Sitemap: https://sveztese.cz/sitemap.xml'''
-    
-    from flask import Response
-    return Response(response, mimetype='text/plain', headers={
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*'
-    })
 
 @app.route('/sitemap.xml', methods=['GET'])
 def sitemap_xml():
