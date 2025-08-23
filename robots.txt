@@ -1,2 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /search
+Allow: /terms
+Allow: /privacy
+Disallow: /api/
+Disallow: /admin/
+Disallow: /debug
+Disallow: /test
+Disallow: /payment-*
+Disallow: /qr-payment
+
+Sitemap: https://sveztese.cz/sitemap.xml
