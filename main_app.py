@@ -2390,6 +2390,15 @@ if __name__ == '__main__':
         
         # Import bezpečnostních hlaviček
         from security_headers import add_security_headers
+        from flask import Flask, redirect, request
+
+        app = Flask(__name__)
+
+
+        @app.before_request
+        def redirect_root_to_www():
+            if request.host == "sveztese.cz":
+                return redirect("https://www.sveztese.cz" + request.full_path, code=301)
         
         @app.before_request
         def force_https():
