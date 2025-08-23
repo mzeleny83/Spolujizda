@@ -26,6 +26,7 @@
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
     </style>
 </head>
 <body>
@@ -86,6 +87,11 @@
             
             <!-- Mapa pro vyhledávání -->
             <div id="searchMap" style="width: 100%; height: 300px; border: 2px solid #ddd; border-radius: 8px; margin: 15px 0;"></div>
+            
+            <!-- Šipka upozorňující na výsledky -->
+            <div id="resultsArrow" style="display: none; text-align: center; margin: 10px 0; font-size: 18px; color: #007bff; animation: bounce 2s infinite;">
+                ↓ Výsledky hledání jsou níže ↓
+            </div>
             
             <div id="searchResults"></div>
         </div>
@@ -591,8 +597,12 @@
                 
                 if (rides.length === 0) {
                     results.innerHTML = '<div style="text-align:center;color:#666;margin:30px 0;">❌ Žádné jízdy nenalezeny</div>';
+                    document.getElementById('resultsArrow').style.display = 'none';
                     return;
                 }
+                
+                // Zobraz šipku upozorňující na výsledky
+                document.getElementById('resultsArrow').style.display = 'block';
                 
                 results.innerHTML = rides.map(ride => `
                     <div class="ride">
@@ -619,6 +629,11 @@
                 // Ignoruj GPS filtr - načti všechny jízdy bez omezení
                 const response = await fetch('/api/rides/search');
                 const rides = await response.json();
+                
+                // Zobraz šipku upozorňující na výsledky
+                if (rides.length > 0) {
+                    document.getElementById('resultsArrow').style.display = 'block';
+                }
                 
                 results.innerHTML = rides.map(ride => `
                     <div class="ride">
