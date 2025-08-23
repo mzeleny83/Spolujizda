@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory, redirect
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, Response
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import sqlite3
@@ -1740,13 +1740,9 @@ def terms():
 def privacy():
     return render_template('privacy.html')
 
-@app.route('/robots.txt')
+@app.route('/robots.txt', methods=['GET'])
 def robots_txt():
-    try:
-        return send_from_directory('static', 'robots.txt', mimetype='text/plain')
-    except:
-        # Fallback pokud statický soubor neexistuje
-        return '''User-agent: *
+    response = '''User-agent: *
 Allow: /
 Allow: /search
 Allow: /terms
@@ -1758,11 +1754,17 @@ Disallow: /test
 Disallow: /payment-*
 Disallow: /qr-payment
 
-Sitemap: https://sveztese.cz/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
+Sitemap: https://sveztese.cz/sitemap.xml'''
+    
+    from flask import Response
+    return Response(response, mimetype='text/plain', headers={
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*'
+    })
 
-@app.route('/sitemap.xml')
+@app.route('/sitemap.xml', methods=['GET'])
 def sitemap_xml():
-    return '''<?xml version="1.0" encoding="UTF-8"?>
+    sitemap = '''<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://sveztese.cz/</loc>
@@ -1784,7 +1786,12 @@ def sitemap_xml():
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
-</urlset>''', 200, {'Content-Type': 'application/xml'}
+</urlset>'''
+    
+    return Response(sitemap, mimetype='application/xml', headers={
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*'
+    })
 
 @app.route('/api/notifications/send', methods=['POST'])
 def send_notification():
