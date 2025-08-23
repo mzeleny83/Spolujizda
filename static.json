@@ -1,0 +1,11 @@
+{
+  "root": ".",
+  "https_only": true,
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://www.sveztese.cz",
+      "status": 301
+    }
+  ]
+}
