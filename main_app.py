@@ -78,6 +78,8 @@ def search_page():
 def api_status():
     return jsonify({
         'message': 'Spolujízda API server běží!',
+        'robots_txt_url': f'{request.host_url}robots.txt',
+        'sitemap_url': f'{request.host_url}sitemap.xml',
         'endpoints': [
             'POST /api/users/register',
             'POST /api/users/login', 
@@ -1518,6 +1520,9 @@ def get_recurring_rides():
 
 @app.route('/<path:filename>')
 def serve_static(filename):
+    # Speciální handling pro robots.txt
+    if filename == 'robots.txt':
+        return send_from_directory('static', 'robots.txt', mimetype='text/plain')
     return send_from_directory('static', filename)
 
 # API pro platby (mock implementace)
@@ -1737,7 +1742,11 @@ def privacy():
 
 @app.route('/robots.txt')
 def robots_txt():
-    return '''User-agent: *
+    try:
+        return send_from_directory('static', 'robots.txt', mimetype='text/plain')
+    except:
+        # Fallback pokud statický soubor neexistuje
+        return '''User-agent: *
 Allow: /
 Allow: /search
 Allow: /terms
