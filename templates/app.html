@@ -25,6 +25,7 @@
         .message { padding: 10px; margin: 10px 0; border-radius: 5px; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
     </style>
 </head>
 <body>
@@ -867,6 +868,8 @@
                 return;
             }
             
+            showMessage('Připravuji platbu...', 'info');
+            
             try {
                 const response = await fetch('/api/payments/create-checkout-session', {
                     method: 'POST',
@@ -879,13 +882,16 @@
                 });
                 
                 const session = await response.json();
+                console.log('Payment response:', session);
                 
-                if (response.ok) {
+                if (response.ok && session.checkout_url) {
+                    showMessage('Přesměrovávám na platbu...');
                     window.location.href = session.checkout_url;
                 } else {
-                    showMessage(session.error, 'error');
+                    showMessage(session.error || 'Chyba při vytváření platby', 'error');
                 }
             } catch (error) {
+                console.error('Payment error:', error);
                 showMessage('Chyba při platbě: ' + error.message, 'error');
             }
         }
