@@ -1094,7 +1094,42 @@ def create_reservation():
 
 @app.route('/api/reservations/user/<int:user_id>')
 def get_user_reservations_simple(user_id):
-    return jsonify([])
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''
+            SELECT res.id, res.seats_reserved, res.status, res.created_at,
+                   r.from_location, r.to_location, r.departure_time, r.price_per_person,
+                   u.name as driver_name, u.phone as driver_phone
+            FROM reservations res
+            JOIN rides r ON res.ride_id = r.id
+            JOIN users u ON r.user_id = u.id
+            WHERE res.passenger_id = ? AND res.status = 'confirmed'
+            ORDER BY r.departure_time ASC
+        ''', (user_id,))
+        
+        reservations = c.fetchall()
+        conn.close()
+        
+        result = []
+        for res in reservations:
+            result.append({
+                'reservation_id': res[0],
+                'seats_reserved': res[1],
+                'status': res[2],
+                'created_at': res[3],
+                'from_location': res[4],
+                'to_location': res[5],
+                'departure_time': res[6],
+                'price_per_person': res[7],
+                'driver_name': res[8],
+                'driver_phone': res[9]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reservations/<int:reservation_id>')
 def get_reservation_details(reservation_id):
@@ -1457,7 +1492,7 @@ def get_recurring_rides():
 def serve_static(filename):
     return send_from_directory('static', filename)
 
-# API pro platby
+# API pro platby (mock implementace)
 @app.route('/api/payments/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     try:
@@ -1479,9 +1514,6 @@ def create_checkout_session():
             conn.close()
             return jsonify({'error': 'Jízda nenalezena'}), 404
         
-        if not ride:
-            return jsonify({'error': 'Jízda nenalezena'}), 404
-        
         # Kontrola a výpočet provize
         if amount is None:
             return jsonify({'error': 'Částka není zadána'}), 400
@@ -1494,39 +1526,20 @@ def create_checkout_session():
         commission = int(amount * COMMISSION_RATE)
         driver_amount = amount - commission
         
-        # Vytvoř Stripe Checkout session
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'czk',
-                    'product_data': {
-                        'name': f'Spolujízda: {ride[0]} → {ride[1]}',
-                        'description': f'Rezervace jízdy #{ride_id} (vključuje 10% poplatek)'
-                    },
-                    'unit_amount': amount * 100,  # Stripe očekává haléře
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url=request.host_url + f'payment-success?ride_id={ride_id}',
-            cancel_url=request.host_url + 'payment-cancel',
-            metadata={
-                'ride_id': ride_id,
-                'user_id': user_id,
-                'amount': amount,
-                'commission': commission
-            }
-        )
+        # Mock platební session (bez Stripe)
+        mock_session_id = f'mock_session_{ride_id}_{user_id}'
         
         # Ulož platbu do databáze
         c.execute('''INSERT INTO payments (ride_id, passenger_id, driver_id, amount, commission, driver_amount, stripe_payment_id, status)
                      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')''',
-                 (ride_id, user_id, ride[2], amount, commission, driver_amount, checkout_session.id))
+                 (ride_id, user_id, ride[2], amount, commission, driver_amount, mock_session_id))
         conn.commit()
         conn.close()
         
-        return jsonify({'checkout_url': checkout_session.url}), 200
+        # Vrať mock URL pro testování
+        checkout_url = f'{request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}'
+        
+        return jsonify({'checkout_url': checkout_url}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
