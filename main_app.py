@@ -749,7 +749,7 @@ def search_rides():
             waypoints = json.loads(ride[7]) if ride[7] else []
             
             # Výpočet vzdálenosti od uživatele
-            distance = float('inf')  # Nastav na nekonečno jako výchozí
+            distance = 999  # Nastav na vysoké číslo jako výchozí
             if user_lat and user_lng and search_range:
                 # Zkontroluj vzdálenost k OBOU městům (odkud i kam)
                 from_coords = cities.get(ride[2].split(',')[0].strip())  # Pouze město, bez ulice
