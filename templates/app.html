@@ -212,6 +212,7 @@
                         </select>
                     </label>
                     <button class="btn" onclick="loadAllUsers()" style="background: #28a745;">📊 Top uživatelé</button>
+                    <button class="btn" onclick="loadCompleteUserList()" style="background: #17a2b8;">📄 Všichni uživatelé</button>
                 </div>
             </div>
             
@@ -1699,7 +1700,14 @@
             
             try {
                 const response = await fetch('/api/users/all');
-                const users = await response.json();
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    resultsDiv.innerHTML = '❌ Chyba: ' + (result.error || 'Neznámá chyba');
+                    return;
+                }
+                
+                const users = Array.isArray(result) ? result : [];
                 
                 if (users.length === 0) {
                     resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé</p>';
@@ -1746,7 +1754,14 @@
                 if (minRating) url += `&min_rating=${minRating}`;
                 
                 const response = await fetch(url);
-                const users = await response.json();
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    resultsDiv.innerHTML = '❌ Chyba: ' + (result.error || 'Neznámá chyba');
+                    return;
+                }
+                
+                const users = Array.isArray(result) ? result : [];
                 
                 if (users.length === 0) {
                     resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé nenalezeni</p>';
@@ -1915,6 +1930,63 @@
                 }
             } catch (error) {
                 showMessage('Chyba: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadCompleteUserList() {
+            const resultsDiv = document.getElementById('usersResults');
+            resultsDiv.innerHTML = '⏳ Načítám kompletní seznam uživatelů...';
+            
+            try {
+                const response = await fetch('/api/users/all');
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    resultsDiv.innerHTML = '❌ Chyba: ' + (result.error || 'Neznámá chyba');
+                    return;
+                }
+                
+                const users = Array.isArray(result) ? result : [];
+                
+                if (users.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé</p>';
+                    return;
+                }
+                
+                // Zobraz všechny uživatele bez omezení
+                resultsDiv.innerHTML = `
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+                        <h4 style="margin: 0; color: #1976d2;">📄 Kompletní seznam uživatelů (${users.length})</h4>
+                        <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">Seřazeno podle hodnocení a počtu jízd</p>
+                    </div>
+                ` + users.map((user, index) => `
+                    <div class="ride" style="cursor: pointer; position: relative;" onclick="showUserProfile(${user.id})">
+                        <div style="position: absolute; top: 10px; left: 10px; background: #1976d2; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${index + 1}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-left: 40px;">
+                            <div>
+                                <h3>${user.name} ${user.verified ? '<span style="color: #4caf50;">✓</span>' : ''}</h3>
+                                <div style="display: flex; gap: 15px; margin: 5px 0;">
+                                    <span>⭐ ${user.rating.toFixed(1)}</span>
+                                    <span>🚗 ${user.total_rides} jízd</span>
+                                    <span>👥 Řidič: ${user.rides_as_driver}x</span>
+                                    <span>👥 Pasažér: ${user.rides_as_passenger}x</span>
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    📅 Poslední aktivita: ${user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Neznámá'}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <button class="btn" onclick="event.stopPropagation(); addToFavorites(${user.id})" style="background: #ffc107; padding: 5px 10px; margin: 2px;">❤️</button>
+                                <button class="btn" onclick="event.stopPropagation(); showUserProfile(${user.id})" style="padding: 5px 10px;">👁️ Profil</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                showMessage(`Načteno ${users.length} uživatelů!`);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = '❌ Chyba při načítání: ' + error.message;
             }
         }
         
