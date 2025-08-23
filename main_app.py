@@ -1758,29 +1758,29 @@ Disallow: /test
 Disallow: /payment-*
 Disallow: /qr-payment
 
-Sitemap: https://your-app.herokuapp.com/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
+Sitemap: https://sveztese.cz/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
     return '''<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://your-app.herokuapp.com/</loc>
+    <loc>https://sveztese.cz/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://your-app.herokuapp.com/search</loc>
+    <loc>https://sveztese.cz/search</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://your-app.herokuapp.com/terms</loc>
+    <loc>https://sveztese.cz/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://your-app.herokuapp.com/privacy</loc>
+    <loc>https://sveztese.cz/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
