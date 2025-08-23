@@ -390,6 +390,57 @@ def init_db():
         except sqlite3.OperationalError:
             pass
         
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN home_city TEXT')
+        except sqlite3.OperationalError:
+            pass
+        
+        # Tabulka měst
+        c.execute('''CREATE TABLE IF NOT EXISTS cities
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT UNIQUE NOT NULL,
+                  region TEXT,
+                  population INTEGER,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        
+        # Naplnit tabulku měst českými městy
+        cities_data = [
+            ('Praha', 'Hlavní město Praha', 1300000),
+            ('Brno', 'Jihomoravský kraj', 380000),
+            ('Ostrava', 'Moravskoslezský kraj', 290000),
+            ('Plzeň', 'Plzeňský kraj', 170000),
+            ('Liberec', 'Liberecký kraj', 100000),
+            ('Olomouc', 'Olomoucký kraj', 100000),
+            ('Zlín', 'Zlínský kraj', 75000),
+            ('České Budějovice', 'Jihojihomoravský kraj', 95000),
+            ('Hradec Králové', 'Královéhradecký kraj', 95000),
+            ('Pardubice', 'Pardubický kraj', 90000),
+            ('Zlín', 'Zlínský kraj', 75000),
+            ('Havlíčkův Brod', 'Vysočina', 23000),
+            ('Kladno', 'Středočeský kraj', 70000),
+            ('Most', 'Ústecký kraj', 65000),
+            ('Opava', 'Moravskoslezský kraj', 57000),
+            ('Frýdek-Místek', 'Moravskoslezský kraj', 56000),
+            ('Karásek', 'Moravskoslezský kraj', 55000),
+            ('Jihlava', 'Vysočina', 50000),
+            ('Teplice', 'Ústecký kraj', 50000),
+            ('Česká Lípa', 'Ústecký kraj', 37000),
+            ('Prostějov', 'Olomoucký kraj', 44000),
+            ('Přerov', 'Olomoucký kraj', 42000),
+            ('Jablonec nad Nisou', 'Liberecký kraj', 45000),
+            ('Chomutov', 'Ústecký kraj', 48000),
+            ('Děčín', 'Ústecký kraj', 48000),
+            ('Kolín', 'Středočeský kraj', 31000),
+            ('Trhové Sviny', 'Jihojihomoravský kraj', 5000),
+            ('Rájec-Jestřebí', 'Jihomoravský kraj', 3000)
+        ]
+        
+        for city_data in cities_data:
+            try:
+                c.execute('INSERT OR IGNORE INTO cities (name, region, population) VALUES (?, ?, ?)', city_data)
+            except sqlite3.Error:
+                pass  # Město již existuje
+        
         # Přidá chybějící sloupce do existujících tabulek
         try:
             c.execute('ALTER TABLE users ADD COLUMN rating REAL DEFAULT 5.0')
@@ -428,6 +479,7 @@ def register():
             return jsonify({'error': 'Zadejte platné jméno a příjmení'}), 400
         
         email = data.get('email', '').strip()
+        home_city = data.get('home_city', '').strip()
         password_confirm = data.get('password_confirm')
         
         if not all([name, phone, password, password_confirm]):
@@ -474,8 +526,8 @@ def register():
         
         try:
             # Registruje uživatele
-            c.execute('INSERT INTO users (name, phone, email, password_hash, rating) VALUES (?, ?, ?, ?, ?)',
-                     (name, phone_full, email if email else None, password_hash, 5.0))
+            c.execute('INSERT INTO users (name, phone, email, password_hash, rating, home_city) VALUES (?, ?, ?, ?, ?, ?)',
+                     (name, phone_full, email if email else None, password_hash, 5.0, home_city if home_city else None))
             conn.commit()
             conn.close()
             
@@ -1456,7 +1508,7 @@ def get_all_users():
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         c.execute('''
-            SELECT u.id, u.name, u.phone, u.rating, u.total_rides, u.verified, u.created_at,
+            SELECT u.id, u.name, u.phone, u.rating, u.total_rides, u.verified, u.created_at, u.home_city,
                    COUNT(DISTINCT rh1.id) as rides_as_driver,
                    COUNT(DISTINCT rh2.id) as rides_as_passenger
             FROM users u
@@ -1479,8 +1531,9 @@ def get_all_users():
                 'total_rides': user[4] or 0,
                 'verified': user[5] or False,
                 'last_active': user[6],  # created_at jako last_active
-                'rides_as_driver': user[7] or 0,
-                'rides_as_passenger': user[8] or 0
+                'home_city': user[7] or 'Neznámé',
+                'rides_as_driver': user[8] or 0,
+                'rides_as_passenger': user[9] or 0
             })
         
         return jsonify(result), 200
@@ -1667,6 +1720,7 @@ def search_users():
         query = request.args.get('q', '').strip()
         min_rating = request.args.get('min_rating', type=float)
         verified_only = request.args.get('verified', 'false').lower() == 'true'
+        city_filter = request.args.get('city', '').strip()
         
         if not query:
             return jsonify({'error': 'Zadejte vyhledávací dotaz'}), 400
@@ -1675,7 +1729,7 @@ def search_users():
         c = conn.cursor()
         
         sql = '''
-            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.created_at
+            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.created_at, u.home_city
             FROM users u
             WHERE u.name LIKE ?
         '''
@@ -1687,6 +1741,10 @@ def search_users():
         
         if verified_only:
             sql += ' AND u.verified = 1'
+        
+        if city_filter:
+            sql += ' AND u.home_city = ?'
+            params.append(city_filter)
         
         sql += ' ORDER BY u.rating DESC, u.total_rides DESC LIMIT 20'
         
@@ -1702,7 +1760,8 @@ def search_users():
                 'rating': user[2] or 5.0,
                 'total_rides': user[3] or 0,
                 'verified': user[4] or False,
-                'last_active': user[5]
+                'last_active': user[5],
+                'home_city': user[6] or 'Neznámé'
             })
         
         return jsonify(result), 200
@@ -1764,6 +1823,29 @@ def complete_ride(ride_id):
         conn.close()
         
         return jsonify({'message': 'Jízda označena jako dokončená'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro města
+@app.route('/api/cities', methods=['GET'])
+def get_cities():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('SELECT name, region, population FROM cities ORDER BY population DESC, name ASC')
+        cities = c.fetchall()
+        conn.close()
+        
+        result = []
+        for city in cities:
+            result.append({
+                'name': city[0],
+                'region': city[1],
+                'population': city[2]
+            })
+        
+        return jsonify(result), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

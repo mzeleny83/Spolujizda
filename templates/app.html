@@ -100,6 +100,12 @@
                 <input type="email" id="regEmail" placeholder="jan@example.com" onkeypress="if(event.key==='Enter') register()" />
             </div>
             <div class="form-group">
+                <label>Město bydliště:</label>
+                <select id="regCity" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;">
+                    <option value="">Vyberte město...</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Heslo:</label>
                 <input type="password" id="regPassword" onkeypress="if(event.key==='Enter') register()" />
             </div>
@@ -209,6 +215,11 @@
                             <option value="4.5">4.5+ ⭐</option>
                             <option value="4.0">4.0+ ⭐</option>
                             <option value="3.5">3.5+ ⭐</option>
+                        </select>
+                    </label>
+                    <label>Město: 
+                        <select id="cityFilter" style="padding: 5px;">
+                            <option value="">Všechna města</option>
                         </select>
                     </label>
                     <button class="btn" onclick="loadAllUsers()" style="background: #28a745;">📊 Top uživatelé</button>
@@ -404,6 +415,7 @@
                 name: name,
                 phone: document.getElementById('regPhone').value,
                 email: document.getElementById('regEmail').value,
+                home_city: document.getElementById('regCity').value,
                 password: document.getElementById('regPassword').value,
                 password_confirm: document.getElementById('regPasswordConfirm').value
             };
@@ -1739,6 +1751,7 @@
             const query = document.getElementById('userSearchQuery').value.trim();
             const verifiedOnly = document.getElementById('verifiedOnly').checked;
             const minRating = document.getElementById('minRatingFilter').value;
+            const cityFilter = document.getElementById('cityFilter').value;
             
             if (!query) {
                 showMessage('Zadejte vyhledávací dotaz', 'error');
@@ -1752,6 +1765,7 @@
                 let url = `/api/users/search?q=${encodeURIComponent(query)}`;
                 if (verifiedOnly) url += '&verified=true';
                 if (minRating) url += `&min_rating=${minRating}`;
+                if (cityFilter) url += `&city=${encodeURIComponent(cityFilter)}`;
                 
                 const response = await fetch(url);
                 const result = await response.json();
@@ -1773,7 +1787,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <h3>${user.name} ${user.verified ? '✓' : ''}</h3>
-                                <div>⭐ ${user.rating.toFixed(1)} | 🚗 ${user.total_rides} jízd</div>
+                                <div>⭐ ${user.rating.toFixed(1)} | 🚗 ${user.total_rides} jízd | 🏠 ${user.home_city || 'Neznámé'}</div>
                                 <div style="font-size: 12px; color: #666;">Poslední aktivita: ${new Date(user.last_active).toLocaleDateString()}</div>
                             </div>
                             <div>
@@ -1968,6 +1982,7 @@
                                 <div style="display: flex; gap: 15px; margin: 5px 0;">
                                     <span>⭐ ${user.rating.toFixed(1)}</span>
                                     <span>🚗 ${user.total_rides} jízd</span>
+                                    <span>🏠 ${user.home_city || 'Neznámé'}</span>
                                     <span>👥 Řidič: ${user.rides_as_driver}x</span>
                                     <span>👥 Pasažér: ${user.rides_as_passenger}x</span>
                                 </div>
@@ -1990,9 +2005,43 @@
             }
         }
         
+        // Načtení měst do registračního formuláře
+        async function loadCities() {
+            try {
+                const response = await fetch('/api/cities');
+                const cities = await response.json();
+                
+                const citySelect = document.getElementById('regCity');
+                citySelect.innerHTML = '<option value="">Vyberte město...</option>';
+                
+                const cityFilter = document.getElementById('cityFilter');
+                if (cityFilter) {
+                    cityFilter.innerHTML = '<option value="">Všechna města</option>';
+                }
+                
+                cities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city.name;
+                    option.textContent = `${city.name} (${city.region})`;
+                    citySelect.appendChild(option);
+                    
+                    if (cityFilter) {
+                        const filterOption = document.createElement('option');
+                        filterOption.value = city.name;
+                        filterOption.textContent = city.name;
+                        cityFilter.appendChild(filterOption);
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Chyba při načítání měst:', error);
+            }
+        }
+        
         // Inicializace
         checkSavedLogin();
         updateUI();
+        loadCities();
         
         // Zobraz cookie consent po načtení
         setTimeout(showCookieConsent, 2000);
