@@ -1745,8 +1745,8 @@ def search_users():
         verified_only = request.args.get('verified', 'false').lower() == 'true'
         city_filter = request.args.get('city', '').strip()
         
-        if not query:
-            return jsonify({'error': 'Zadejte vyhledávací dotaz'}), 400
+        if not query and not city_filter:
+            return jsonify({'error': 'Zadejte jméno nebo vyberte město'}), 400
         
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
@@ -1754,9 +1754,13 @@ def search_users():
         sql = '''
             SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.created_at, u.home_city
             FROM users u
-            WHERE u.name LIKE ?
+            WHERE 1=1
         '''
-        params = [f'%{query}%']
+        params = []
+        
+        if query:
+            sql += ' AND u.name LIKE ?'
+            params.append(f'%{query}%')
         
         if min_rating:
             sql += ' AND u.rating >= ?'
@@ -1769,10 +1773,18 @@ def search_users():
             sql += ' AND u.home_city = ?'
             params.append(city_filter)
         
+        # Debug výpisy
+        print(f"DEBUG: query='{query}', city_filter='{city_filter}'")
+        print(f"DEBUG: SQL={sql}")
+        print(f"DEBUG: params={params}")
+        
         sql += ' ORDER BY u.rating DESC, u.total_rides DESC LIMIT 20'
         
         c.execute(sql, params)
         users = c.fetchall()
+        print(f"DEBUG: Nalezeno {len(users)} uživatelů")
+        for user in users:
+            print(f"DEBUG: - {user[1]}: {user[6]}")
         conn.close()
         
         result = []

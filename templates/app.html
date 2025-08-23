@@ -55,12 +55,31 @@
                 <input type="text" id="fromStreet" placeholder="Odkud - ulice (volitelné)" />
                 <input type="text" id="to" placeholder="Kam - město (Praha, Brno, Ostrava...)" />
                 <input type="text" id="toStreet" placeholder="Kam - ulice (volitelné)" />
+                <div style="display: flex; gap: 10px; margin: 10px 0;">
+                    <div style="flex: 1;">
+                        <label>Datum od:</label>
+                        <input type="date" id="dateFrom" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Datum do:</label>
+                        <input type="date" id="dateTo" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Čas od:</label>
+                        <input type="time" id="timeFrom" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Čas do:</label>
+                        <input type="time" id="timeTo" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
                 <div style="margin: 10px 0;">
                     <label>Vzdálenost od mé polohy: <span id="rangeValue">50</span> km</label><br>
                     <input type="range" id="searchRange" min="0" max="100" value="50" oninput="updateRangeValue(this.value)" style="width: 100%; margin: 5px 0;">
                 </div>
                 <button type="submit" class="btn">🔍 Hledat jízdy v zadaném okolí</button>
                 <button type="button" class="btn btn-success" onclick="showAll()">📋 Všechny jízdy</button>
+                <button type="button" class="btn" onclick="clearDateTimeFilters()" style="background: #6c757d;">🗑️ Vymazat filtry</button>
                 <button type="button" class="btn" onclick="showMyLocation()" style="background: #17a2b8;">📍 Moje poloha</button>
             </form>
             
@@ -539,6 +558,17 @@
                 let url = '/api/rides/search?';
                 if (fromFull) url += `from=${encodeURIComponent(fromFull)}&`;
                 if (toFull) url += `to=${encodeURIComponent(toFull)}&`;
+                
+                // Přidej datum a čas filtry
+                const dateFrom = document.getElementById('dateFrom').value;
+                const dateTo = document.getElementById('dateTo').value;
+                const timeFrom = document.getElementById('timeFrom').value;
+                const timeTo = document.getElementById('timeTo').value;
+                
+                if (dateFrom) url += `date_from=${dateFrom}&`;
+                if (dateTo) url += `date_to=${dateTo}&`;
+                if (timeFrom) url += `time_from=${timeFrom}&`;
+                if (timeTo) url += `time_to=${timeTo}&`;
                 
                 // Přidej GPS polohu a vzdálenost pokud je dostupná
                 if (currentLocation && rangeSlider > 0) {
@@ -1753,8 +1783,8 @@
             const minRating = document.getElementById('minRatingFilter').value;
             const cityFilter = document.getElementById('cityFilter').value;
             
-            if (!query) {
-                showMessage('Zadejte vyhledávací dotaz', 'error');
+            if (!query && !cityFilter) {
+                showMessage('Zadejte jméno nebo vyberte město', 'error');
                 return;
             }
             
@@ -1767,7 +1797,10 @@
                 if (minRating) url += `&min_rating=${minRating}`;
                 if (cityFilter) url += `&city=${encodeURIComponent(cityFilter)}`;
                 
+                console.log('Vyhledávací URL:', url);
+                
                 const response = await fetch(url);
+                console.log('Response status:', response.status);
                 const result = await response.json();
                 
                 if (!response.ok) {
@@ -1776,6 +1809,7 @@
                 }
                 
                 const users = Array.isArray(result) ? result : [];
+                console.log('Nalezeni uživatelé:', users);
                 
                 if (users.length === 0) {
                     resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé nenalezeni</p>';
@@ -2036,6 +2070,15 @@
             } catch (error) {
                 console.error('Chyba při načítání měst:', error);
             }
+        }
+        
+        // Funkce pro vymazání filtrů data a času
+        function clearDateTimeFilters() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('timeFrom').value = '';
+            document.getElementById('timeTo').value = '';
+            showMessage('Filtry data a času vymazány');
         }
         
         // Inicializace
