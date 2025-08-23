@@ -487,6 +487,9 @@
                 if (currentLocation && rangeSlider > 0) {
                     const actualRange = Math.round(Math.pow(rangeSlider / 100 * 300, 1.5) / 10);
                     url += `lat=${currentLocation.lat}&lng=${currentLocation.lng}&range=${actualRange}&`;
+                } else if (rangeSlider > 0 && !currentLocation) {
+                    showMessage('Pro filtrované vyhledávání musíte zapnout GPS polohu', 'error');
+                    return;
                 }
                 
                 const response = await fetch(url);

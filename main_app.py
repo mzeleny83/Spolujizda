@@ -602,15 +602,29 @@ def search_rides():
             waypoints = json.loads(ride[7]) if ride[7] else []
             
             # Výpočet vzdálenosti od uživatele
-            distance = 0
+            distance = float('inf')  # Nastav na nekonečno jako výchozí
             if user_lat and user_lng and search_range:
-                # Použij souřadnice města
-                from_coords = cities.get(ride[2])
+                # Zkontroluj vzdálenost k OBOU městům (odkud i kam)
+                from_coords = cities.get(ride[2].split(',')[0].strip())  # Pouze město, bez ulice
+                to_coords = cities.get(ride[3].split(',')[0].strip())    # Pouze město, bez ulice
+                
+                min_distance = float('inf')
+                
+                # Vzdálenost k výchozímu městu
                 if from_coords:
-                    distance = calculate_distance(user_lat, user_lng, from_coords[0], from_coords[1])
-                    # Filtruj podle vzdálenosti
-                    if distance > search_range:
-                        continue
+                    dist_from = calculate_distance(user_lat, user_lng, from_coords[0], from_coords[1])
+                    min_distance = min(min_distance, dist_from)
+                
+                # Vzdálenost k cílovému městu
+                if to_coords:
+                    dist_to = calculate_distance(user_lat, user_lng, to_coords[0], to_coords[1])
+                    min_distance = min(min_distance, dist_to)
+                
+                distance = min_distance
+                
+                # Filtruj podle vzdálenosti - jízda musí být blízko ALESPOŇ jednoho z měst
+                if distance > search_range:
+                    continue
             
             # Zjištění, zda je jízda vlastní nebo rezervovaná
             is_own = False
@@ -1481,9 +1495,9 @@ if __name__ == '__main__':
         except:
             pass
         
-        port = int(os.environ.get('PORT', 8081))
+        port = int(os.environ.get('PORT', 5000))
         print(f"Starting server on port {port}")
-        socketio.run(app, debug=False, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+        app.run(debug=False, host='0.0.0.0', port=port)
     except KeyboardInterrupt:
         signal_handler(signal.SIGINT, None)
     except Exception as e:
