@@ -19,8 +19,12 @@ CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Stripe konfigurace
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_...')  # Nastav v produkci
-STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_...')
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_51QYOhzP8xJKqGzKvYourSecretKey')  # Nastav v produkci
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_51QYOhzP8xJKqGzKvYourPublishableKey')
+
+# Konfigurace provize
+COMMISSION_RATE = 0.10  # 10% provize
+YOUR_STRIPE_ACCOUNT_ID = 'acct_YourConnectedAccountId'  # Váš Stripe Connect účet
 
 # Slovník pro ukládání pozic uživatelů
 user_locations = {}
@@ -373,6 +377,33 @@ def init_db():
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (user_id) REFERENCES users (id),
                   FOREIGN KEY (favorite_user_id) REFERENCES users (id))''')
+        
+        # Tabulka bankovních účtů řidičů
+        c.execute('''CREATE TABLE IF NOT EXISTS driver_accounts
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER UNIQUE,
+                  bank_account TEXT,
+                  iban TEXT,
+                  account_holder TEXT,
+                  verified BOOLEAN DEFAULT 0,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (user_id) REFERENCES users (id))''')
+        
+        # Tabulka plateb
+        c.execute('''CREATE TABLE IF NOT EXISTS payments
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  ride_id INTEGER,
+                  passenger_id INTEGER,
+                  driver_id INTEGER,
+                  amount INTEGER,
+                  commission INTEGER,
+                  driver_amount INTEGER,
+                  stripe_payment_id TEXT,
+                  status TEXT DEFAULT 'pending',
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (ride_id) REFERENCES rides (id),
+                  FOREIGN KEY (passenger_id) REFERENCES users (id),
+                  FOREIGN KEY (driver_id) REFERENCES users (id))''')
         
         # Rozšíření tabulky users o nové sloupce
         try:
@@ -1414,6 +1445,10 @@ def create_checkout_session():
         if not ride:
             return jsonify({'error': 'Jízda nenalezena'}), 404
         
+        # Výpočet provize
+        commission = int(amount * COMMISSION_RATE)
+        driver_amount = amount - commission
+        
         # Vytvoř Stripe Checkout session
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -1422,7 +1457,7 @@ def create_checkout_session():
                     'currency': 'czk',
                     'product_data': {
                         'name': f'Spolujízda: {ride[0]} → {ride[1]}',
-                        'description': f'Rezervace jízdy #{ride_id}'
+                        'description': f'Rezervace jízdy #{ride_id} (vključuje 10% poplatek)'
                     },
                     'unit_amount': amount * 100,  # Stripe očekává haléře
                 },
@@ -1433,7 +1468,9 @@ def create_checkout_session():
             cancel_url=request.host_url + 'payment-cancel',
             metadata={
                 'ride_id': ride_id,
-                'user_id': user_id
+                'user_id': user_id,
+                'amount': amount,
+                'commission': commission
             }
         )
         
@@ -1445,12 +1482,22 @@ def create_checkout_session():
 @app.route('/payment-success')
 def payment_success():
     ride_id = request.args.get('ride_id')
+    amount = request.args.get('amount', '0')
+    commission = request.args.get('commission', '0')
+    driver_amount = int(amount) - int(commission) if amount and commission else 0
+    
     return f'''
     <html>
     <head><title>Platba úspěšná</title></head>
     <body style="font-family: Arial; text-align: center; padding: 50px;">
         <h1>🎉 Platba úspěšná!</h1>
         <p>Vaše místo v jízdě #{ride_id} bylo rezervováno.</p>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; max-width: 400px; margin-left: auto; margin-right: auto;">
+            <h3>Detail platby:</h3>
+            <p><strong>Celková částka:</strong> {amount} Kč</p>
+            <p><strong>Poplatek Sveztese.cz:</strong> {commission} Kč (10%)</p>
+            <p><strong>Řidiči:</strong> {driver_amount} Kč</p>
+        </div>
         <p>Brzy vás bude kontaktovat řidič.</p>
         <a href="/" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Zpět do aplikace</a>
     </body>
@@ -1968,6 +2015,88 @@ def update_user_city():
         conn.close()
         
         return jsonify({'message': f'Město {home_city} přidáno uživateli {user_name}'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Webhook pro Stripe platby
+@app.route('/webhook/stripe', methods=['POST'])
+def stripe_webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, os.environ.get('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+        )
+    except ValueError:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError:
+        return 'Invalid signature', 400
+    
+    # Zpracuj úspěšnou platbu
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        
+        # Získej metadata
+        ride_id = session['metadata']['ride_id']
+        user_id = session['metadata']['user_id']
+        amount = int(session['metadata']['amount'])
+        commission = int(session['metadata']['commission'])
+        driver_amount = amount - commission
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Aktualizuj status platby
+        c.execute('UPDATE payments SET status = "completed" WHERE stripe_payment_id = ?', (session['id'],))
+        
+        # Získej řidiče
+        c.execute('SELECT user_id FROM rides WHERE id = ?', (ride_id,))
+        driver = c.fetchone()
+        
+        if driver:
+            driver_id = driver[0]
+            
+            # Ulož platbu do databáze
+            c.execute('''INSERT INTO payments (ride_id, passenger_id, driver_id, amount, commission, driver_amount, stripe_payment_id, status)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, "completed")''',
+                     (ride_id, user_id, driver_id, amount, commission, driver_amount, session['id']))
+            
+            # TODO: Zde byš měl poslat peníze řidiči
+            # Např. přes Stripe Connect nebo bankovní převod
+            print(f"PLATBA: {driver_amount} Kč pro řidiče {driver_id}, provize {commission} Kč")
+        
+        conn.commit()
+        conn.close()
+    
+    return 'Success', 200
+
+# API pro přidání bankovního účtu řidiče
+@app.route('/api/driver/bank-account', methods=['POST'])
+def add_driver_bank_account():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        bank_account = data.get('bank_account')
+        iban = data.get('iban')
+        account_holder = data.get('account_holder')
+        
+        if not user_id:
+            return jsonify({'error': 'Přihlášení je vyžadováno'}), 401
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Ulož nebo aktualizuj bankovní účet
+        c.execute('''INSERT OR REPLACE INTO driver_accounts (user_id, bank_account, iban, account_holder)
+                     VALUES (?, ?, ?, ?)''',
+                 (user_id, bank_account, iban, account_holder))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Bankovní účet uložen'}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
