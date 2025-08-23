@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="Actual projects" content="Car pooling" />
+    <title>Actual projects</title>
+    <link rel="stylesheet" href="style.css" />
+    <meta name="seznam-wmt" content="0XGjkLRwy9DlkKRL5Um2UsxqxMSGZdhp" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+</head>
+<body>
+    <nav>
+        <ul>
+            <li class="contact"><a style="color: white" href="contact.html">Contact</a></li>
+            <li class="services"><a style="color: white" href="services.html">Service offer</a></li>
+            <li class="CV"><a style="color: white" href="CV.html">CV</a></li>
+            <li class="currentprojects"><a style="color: white" href="currentprojects.html">Current projects</a></li>
+        </ul>
+    </nav>
+    <span class="czech">
+        <a href="aktualniprojekty.html"><img src="images/czech flag.webp" alt="CZ Verze" style="width: 40px; height: 40px" /></a>
+    </span>
+    <span class="home">
+        <a class="odkaz1" href="index-en.html"><i class="fas fa-home"></i> HOME</a>
+    </span>
+
+    <p>Currently, I am developping an application Carpool - see <a href="https://spolujizda-645ec54e47aa.herokuapp.com/" target="_blank">https://sveztese.cz</a> .</p>
+    <p>Vote, if you think this is a good idea!</p>
+    <button id="voteButton">Vote</button>
+
+    <p>Counter:</p>
+    <p id="counterValue">0</p>
+
+    <p>Here, you can add your opinion</p>
+    <button class="opinionButton">Add opinion</button>
+    <div class="
+    opinions"></div>
+    <p>For this purpose, I am looking for IT developers with the following focus:<br>
+        <ul>
+            <li>Kotlin developer</li>
+            <li>Swift or Objective-C developer</li>
+            <li>JavaScript developer</li>
+            <li>Android Studio, Xcode, React Native, Flutter or Ionic developer</li>
+            <li>RESTful a GraphQL API developer</li>
+            <li>Node.js, Python (Django/Flask), Ruby on Rails or Java (Spring) developer</li>
+            <li>SQL (e.g.. SQLite for mobile database) and NoSQL database (e.g. Firebase, Realm) developer</li>
+            <li>Model-View-ViewModel (MVVM), Model-View-Presenter (MVP) developer</li>
+            <li>Interface Builder and Storyboards developer</li>
+            <li>Flutter developer</li>
+        </ul>
+    </p>
+
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const button = document.getElementById("voteButton");
+            const counterElement = document.getElementById("counterValue");
+
+            // Load the counter value from the server when the page loads
+            fetch('https://miroslavzeleny.cz/counter.php')
+                .then(response => response.json())
+                .then(data => {
+                    counterElement.textContent = data.counter;
+                })
+                .catch(error => {
+                    console.error('Error fetching counter:', error);
+                });
+
+            // Check if the user has already voted
+            let hasVoted = localStorage.getItem("hasVoted") === "true";
+            if (hasVoted) {
+                button.disabled = true;
+                button.textContent = "You have already voted";
+            }
+
+            button.addEventListener("click", () => {
+                // Send a request to increment the counter on the server
+                fetch('https://miroslavzeleny.cz/counter.php', {
+                    method: 'POST',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    counterElement.textContent = data.counter;
+                    button.disabled = true;
+                    button.textContent = "You have already voted";
+                    localStorage.setItem("hasVoted", "true");
+                })
+                .catch(error => {
+                    console.error('Error updating counter:', error);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

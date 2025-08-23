@@ -227,6 +227,26 @@
             </div>
             <button class="btn btn-success" onclick="offerRide()">🚗 Nabídnout jízdu</button>
         </div>
+        <!-- Footer s právními informacemi -->
+        <footer style="margin-top: 50px; padding: 20px 0; border-top: 1px solid #ddd; text-align: center; font-size: 12px; color: #666;">
+            <div style="margin-bottom: 10px;">
+                <a href="/terms" target="_blank" style="color: #007bff; text-decoration: none; margin: 0 10px;">Obchodní podmínky</a> |
+                <a href="/privacy" target="_blank" style="color: #007bff; text-decoration: none; margin: 0 10px;">Ochrana osobních údajů</a> |
+                <a href="mailto:m.zeleny@volny.cz" style="color: #007bff; text-decoration: none; margin: 0 10px;">Kontakt</a>
+            </div>
+            <div>
+                © 2024 Sveztese.cz - Aplikace pro sdílení jízd | IČ: 05402361
+            </div>
+        </footer>
+    </div>
+
+    <!-- Cookie consent banner -->
+    <div id="cookieConsent" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #333; color: white; padding: 15px; z-index: 10000; text-align: center;">
+        <div style="max-width: 900px; margin: 0 auto;">
+            <p style="margin: 0 0 10px 0; font-size: 14px;">Používáme cookies pro zlepšení vašeho zážitku. Pokračováním souhlasíte s jejich používáním.</p>
+            <button onclick="acceptCookies()" style="background: #007bff; color: white; border: none; padding: 8px 20px; border-radius: 4px; margin-right: 10px; cursor: pointer;">Souhlasím</button>
+            <a href="/privacy" target="_blank" style="color: #ccc; text-decoration: none; font-size: 12px;">Více informací</a>
+        </div>
     </div>
 
     <!-- Plovoucí chat okno -->
@@ -1613,9 +1633,24 @@
             }
         }
         
+        // Cookie consent
+        function showCookieConsent() {
+            if (!localStorage.getItem('cookieConsent')) {
+                document.getElementById('cookieConsent').style.display = 'block';
+            }
+        }
+        
+        function acceptCookies() {
+            localStorage.setItem('cookieConsent', 'accepted');
+            document.getElementById('cookieConsent').style.display = 'none';
+        }
+        
         // Inicializace
         checkSavedLogin();
         updateUI();
+        
+        // Zobraz cookie consent po načtení
+        setTimeout(showCookieConsent, 2000);
         
         // Inicializuj slider hodnotu
         setTimeout(() => {
