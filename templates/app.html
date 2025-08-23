@@ -36,6 +36,7 @@
                 <button onclick="showSection('offer')" id="offerBtn" style="display:none;">Nabídnout jízdu</button>
                 <button onclick="showSection('my-rides')" id="myRidesBtn" style="display:none;">🚗 Mnou nabízené jízdy</button>
                 <button onclick="showSection('map'); loadMapRides();">🗺️ Mapa</button>
+                <button onclick="showSection('users')">👥 Uživatelé</button>
                 <button onclick="showSection('reservations')" id="reservationsBtn" style="display:none;">🎫 Moje rezervace</button>
                 <button onclick="showSection('login')" id="loginBtn">Přihlásit</button>
                 <button onclick="showSection('register')" id="registerBtn">Registrovat</button>
@@ -186,6 +187,47 @@
                     <button class="btn btn-success" onclick="submitRating()">⭐ Odeslat hodnocení</button>
                     <button class="btn" onclick="showSection('reservations')" style="margin-left: 10px;">❌ Zrušit</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Seznam uživatelů -->
+        <div id="users" class="section">
+            <h2>👥 Uživatelé</h2>
+            
+            <!-- Vyhledávání uživatelů -->
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="userSearchQuery" placeholder="Hledat uživatele podle jména..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    <button class="btn" onclick="searchUsers()">🔍 Hledat</button>
+                </div>
+                
+                <div style="display: flex; gap: 15px; align-items: center; font-size: 14px;">
+                    <label><input type="checkbox" id="verifiedOnly"> Pouze ověření ✓</label>
+                    <label>Min. hodnocení: 
+                        <select id="minRatingFilter" style="padding: 5px;">
+                            <option value="">Všechna</option>
+                            <option value="4.5">4.5+ ⭐</option>
+                            <option value="4.0">4.0+ ⭐</option>
+                            <option value="3.5">3.5+ ⭐</option>
+                        </select>
+                    </label>
+                    <button class="btn" onclick="loadAllUsers()" style="background: #28a745;">📊 Top uživatelé</button>
+                </div>
+            </div>
+            
+            <!-- Výsledky -->
+            <div id="usersResults">
+                <p style="text-align: center; color: #666;">Použijte vyhledávání nebo klikněte na "Top uživatelé"</p>
+            </div>
+        </div>
+        
+        <!-- Profil uživatele -->
+        <div id="user-profile" class="section">
+            <h2 id="userProfileTitle">👤 Profil uživatele</h2>
+            <button class="btn" onclick="showSection('users')" style="margin-bottom: 20px;">← Zpět na seznam</button>
+            
+            <div id="userProfileContent">
+                <p>Načítám profil...</p>
             </div>
         </div>
 
@@ -1646,6 +1688,232 @@
         function acceptCookies() {
             localStorage.setItem('cookieConsent', 'accepted');
             document.getElementById('cookieConsent').style.display = 'none';
+        }
+        
+        // Funkce pro práci s uživateli
+        async function loadAllUsers() {
+            const resultsDiv = document.getElementById('usersResults');
+            resultsDiv.innerHTML = '⏳ Načítám nejlepší uživatele...';
+            
+            try {
+                const response = await fetch('/api/users/all');
+                const users = await response.json();
+                
+                if (users.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé</p>';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = users.map(user => `
+                    <div class="ride" style="cursor: pointer;" onclick="showUserProfile(${user.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>${user.name} ${user.verified ? '✓' : ''}</h3>
+                                <div>⭐ ${user.rating.toFixed(1)} | 🚗 ${user.total_rides} jízd | 👥 Řidič: ${user.rides_as_driver}x, Pasažér: ${user.rides_as_passenger}x</div>
+                                <div style="font-size: 12px; color: #666;">Poslední aktivita: ${new Date(user.last_active).toLocaleDateString()}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <button class="btn" onclick="event.stopPropagation(); addToFavorites(${user.id})" style="background: #ffc107; padding: 5px 10px; margin: 2px;">❤️</button>
+                                <button class="btn" onclick="event.stopPropagation(); showUserProfile(${user.id})" style="padding: 5px 10px;">👁️ Profil</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                resultsDiv.innerHTML = '❌ Chyba při načítání: ' + error.message;
+            }
+        }
+        
+        async function searchUsers() {
+            const query = document.getElementById('userSearchQuery').value.trim();
+            const verifiedOnly = document.getElementById('verifiedOnly').checked;
+            const minRating = document.getElementById('minRatingFilter').value;
+            
+            if (!query) {
+                showMessage('Zadejte vyhledávací dotaz', 'error');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('usersResults');
+            resultsDiv.innerHTML = '⏳ Vyhledávám uživatele...';
+            
+            try {
+                let url = `/api/users/search?q=${encodeURIComponent(query)}`;
+                if (verifiedOnly) url += '&verified=true';
+                if (minRating) url += `&min_rating=${minRating}`;
+                
+                const response = await fetch(url);
+                const users = await response.json();
+                
+                if (users.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #666;">❌ Žádní uživatelé nenalezeni</p>';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = users.map(user => `
+                    <div class="ride" style="cursor: pointer;" onclick="showUserProfile(${user.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>${user.name} ${user.verified ? '✓' : ''}</h3>
+                                <div>⭐ ${user.rating.toFixed(1)} | 🚗 ${user.total_rides} jízd</div>
+                                <div style="font-size: 12px; color: #666;">Poslední aktivita: ${new Date(user.last_active).toLocaleDateString()}</div>
+                            </div>
+                            <div>
+                                <button class="btn" onclick="event.stopPropagation(); addToFavorites(${user.id})" style="background: #ffc107; padding: 5px 10px;">❤️ Oblíbit</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                resultsDiv.innerHTML = '❌ Chyba při vyhledávání: ' + error.message;
+            }
+        }
+        
+        async function showUserProfile(userId) {
+            document.getElementById('userProfileTitle').textContent = '👤 Profil uživatele';
+            const contentDiv = document.getElementById('userProfileContent');
+            contentDiv.innerHTML = '⏳ Načítám profil...';
+            
+            showSection('user-profile');
+            
+            try {
+                const response = await fetch(`/api/users/${userId}/profile`);
+                const profile = await response.json();
+                
+                document.getElementById('userProfileTitle').textContent = `👤 ${profile.name}`;
+                
+                const reviewsHtml = profile.reviews.length > 0 ? 
+                    profile.reviews.map(review => `
+                        <div style="background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 5px; border-left: 3px solid #007bff;">
+                            <div>⭐ ${review.rating}/5 - ${review.comment}</div>
+                            <div style="font-size: 12px; color: #666;">od ${review.reviewer}, ${new Date(review.date).toLocaleDateString()}</div>
+                        </div>
+                    `).join('') : '<p style="color: #666;">Zatím žádné recenze</p>';
+                
+                const historyHtml = profile.recent_rides.length > 0 ?
+                    profile.recent_rides.map(ride => `
+                        <div style="background: #f8f9fa; padding: 8px; margin: 3px 0; border-radius: 3px;">
+                            <span style="background: ${ride.role === 'driver' ? '#28a745' : '#007bff'}; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px;">${ride.role === 'driver' ? '🚗 Řidič' : '👥 Pasažér'}</span>
+                            ${ride.from} → ${ride.to} (${new Date(ride.date).toLocaleDateString()})
+                        </div>
+                    `).join('') : '<p style="color: #666;">Zatím žádné jízdy</p>';
+                
+                contentDiv.innerHTML = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3>${profile.name} ${profile.verified ? '✓ Ověřeno' : ''}</h3>
+                            <div>
+                                <button class="btn" onclick="addToFavorites(${profile.id})" style="background: #ffc107; margin-right: 10px;">❤️ Přidat do oblíbených</button>
+                                <button class="btn btn-danger" onclick="blockUser(${profile.id})">🚫 Blokovat</button>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #007bff;">${profile.rating.toFixed(1)}</div>
+                                <div style="font-size: 12px; color: #666;">⭐ Hodnocení</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #28a745;">${profile.total_rides}</div>
+                                <div style="font-size: 12px; color: #666;">🚗 Celkem jízd</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #17a2b8;">${profile.rides_as_driver}</div>
+                                <div style="font-size: 12px; color: #666;">🚗 Jako řidič</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6f42c1;">${profile.rides_as_passenger}</div>
+                                <div style="font-size: 12px; color: #666;">👥 Jako pasažér</div>
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 12px; color: #666;">
+                            📅 Člen od: ${new Date(profile.member_since).toLocaleDateString()}
+                        </div>
+                        
+                        ${profile.bio ? `<div style="margin-top: 10px; padding: 10px; background: white; border-radius: 5px;"><strong>O mě:</strong> ${profile.bio}</div>` : ''}
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4>💬 Recenze (${profile.reviews.length})</h4>
+                        ${reviewsHtml}
+                    </div>
+                    
+                    <div>
+                        <h4>📈 Poslední jízdy</h4>
+                        ${historyHtml}
+                    </div>
+                `;
+                
+            } catch (error) {
+                contentDiv.innerHTML = '❌ Chyba při načítání profilu: ' + error.message;
+            }
+        }
+        
+        async function addToFavorites(userId) {
+            if (!currentUser) {
+                showMessage('Musíte být přihlášeni!', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/users/favorites', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        favorite_user_id: userId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Uživatel přidán do oblíbených!');
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Chyba: ' + error.message, 'error');
+            }
+        }
+        
+        async function blockUser(userId) {
+            if (!currentUser) {
+                showMessage('Musíte být přihlášeni!', 'error');
+                return;
+            }
+            
+            if (!confirm('Opravdu chcete zablokovat tohoto uživatele?')) {
+                return;
+            }
+            
+            const reason = prompt('Důvod blokace (volitelné):') || '';
+            
+            try {
+                const response = await fetch('/api/users/block', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        blocker_id: currentUser.id,
+                        blocked_id: userId,
+                        reason: reason
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Uživatel zablokovan!');
+                    showSection('users');
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Chyba: ' + error.message, 'error');
+            }
         }
         
         // Inicializace

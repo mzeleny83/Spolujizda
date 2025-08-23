@@ -349,6 +349,47 @@ def init_db():
                   used BOOLEAN DEFAULT 0,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
+        # Tabulka historie jízd
+        c.execute('''CREATE TABLE IF NOT EXISTS ride_history
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  ride_id INTEGER,
+                  driver_id INTEGER,
+                  passenger_id INTEGER,
+                  from_location TEXT NOT NULL,
+                  to_location TEXT NOT NULL,
+                  departure_time TEXT NOT NULL,
+                  price_per_person INTEGER,
+                  status TEXT DEFAULT 'completed',
+                  completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (ride_id) REFERENCES rides (id),
+                  FOREIGN KEY (driver_id) REFERENCES users (id),
+                  FOREIGN KEY (passenger_id) REFERENCES users (id))''')
+        
+        # Tabulka oblíbených uživatelů
+        c.execute('''CREATE TABLE IF NOT EXISTS favorite_users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER,
+                  favorite_user_id INTEGER,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (user_id) REFERENCES users (id),
+                  FOREIGN KEY (favorite_user_id) REFERENCES users (id))''')
+        
+        # Rozšíření tabulky users o nové sloupce
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN verified BOOLEAN DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN bio TEXT')
+        except sqlite3.OperationalError:
+            pass
+        
         # Přidá chybějící sloupce do existujících tabulek
         try:
             c.execute('ALTER TABLE users ADD COLUMN rating REAL DEFAULT 5.0')
@@ -1408,6 +1449,123 @@ def update_user_location():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# API pro seznam uživatelů
+@app.route('/api/users/all', methods=['GET'])
+def get_all_users():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''
+            SELECT u.id, u.name, u.phone, u.rating, u.total_rides, u.verified, u.last_active,
+                   COUNT(DISTINCT rh1.id) as rides_as_driver,
+                   COUNT(DISTINCT rh2.id) as rides_as_passenger
+            FROM users u
+            LEFT JOIN ride_history rh1 ON u.id = rh1.driver_id
+            LEFT JOIN ride_history rh2 ON u.id = rh2.passenger_id
+            GROUP BY u.id
+            ORDER BY u.rating DESC, u.total_rides DESC
+        ''')
+        
+        users = c.fetchall()
+        conn.close()
+        
+        result = []
+        for user in users:
+            result.append({
+                'id': user[0],
+                'name': user[1],
+                'phone': user[2][:8] + '***',  # Skryj část telefonu
+                'rating': user[3] or 5.0,
+                'total_rides': user[4] or 0,
+                'verified': user[5] or False,
+                'last_active': user[6],
+                'rides_as_driver': user[7] or 0,
+                'rides_as_passenger': user[8] or 0
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<int:user_id>/profile', methods=['GET'])
+def get_user_profile(user_id):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Základní info o uživateli
+        c.execute('''
+            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.created_at, u.bio,
+                   COUNT(DISTINCT rh1.id) as rides_as_driver,
+                   COUNT(DISTINCT rh2.id) as rides_as_passenger
+            FROM users u
+            LEFT JOIN ride_history rh1 ON u.id = rh1.driver_id
+            LEFT JOIN ride_history rh2 ON u.id = rh2.passenger_id
+            WHERE u.id = ?
+            GROUP BY u.id
+        ''', (user_id,))
+        
+        user = c.fetchone()
+        if not user:
+            conn.close()
+            return jsonify({'error': 'Uživatel nenalezen'}), 404
+        
+        # Posledních 5 recenzí
+        c.execute('''
+            SELECT r.rating, r.comment, r.created_at, u.name as reviewer_name
+            FROM ratings r
+            JOIN users u ON r.rater_id = u.id
+            WHERE r.rated_id = ? AND r.comment IS NOT NULL AND r.comment != ''
+            ORDER BY r.created_at DESC
+            LIMIT 5
+        ''', (user_id,))
+        
+        reviews = c.fetchall()
+        
+        # Historie jízd (posledních 10)
+        c.execute('''
+            SELECT rh.from_location, rh.to_location, rh.departure_time, rh.status,
+                   CASE WHEN rh.driver_id = ? THEN 'driver' ELSE 'passenger' END as role
+            FROM ride_history rh
+            WHERE rh.driver_id = ? OR rh.passenger_id = ?
+            ORDER BY rh.completed_at DESC
+            LIMIT 10
+        ''', (user_id, user_id, user_id))
+        
+        history = c.fetchall()
+        conn.close()
+        
+        result = {
+            'id': user[0],
+            'name': user[1],
+            'rating': user[2] or 5.0,
+            'total_rides': user[3] or 0,
+            'verified': user[4] or False,
+            'member_since': user[5],
+            'bio': user[6] or '',
+            'rides_as_driver': user[7] or 0,
+            'rides_as_passenger': user[8] or 0,
+            'reviews': [{
+                'rating': review[0],
+                'comment': review[1],
+                'date': review[2],
+                'reviewer': review[3]
+            } for review in reviews],
+            'recent_rides': [{
+                'from': ride[0],
+                'to': ride[1],
+                'date': ride[2],
+                'status': ride[3],
+                'role': ride[4]
+            } for ride in history]
+        }
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/users/locations', methods=['GET'])
 def get_user_locations():
     try:
@@ -1436,6 +1594,176 @@ def get_user_locations():
             })
         
         return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro oblíbené uživatele
+@app.route('/api/users/favorites', methods=['POST'])
+def add_favorite_user():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        favorite_user_id = data.get('favorite_user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'Přihlášení je vyžadováno'}), 401
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Zkontroluj, zda už není v oblíbených
+        c.execute('SELECT id FROM favorite_users WHERE user_id = ? AND favorite_user_id = ?', 
+                 (user_id, favorite_user_id))
+        if c.fetchone():
+            conn.close()
+            return jsonify({'error': 'Uživatel je již v oblíbených'}), 400
+        
+        c.execute('INSERT INTO favorite_users (user_id, favorite_user_id) VALUES (?, ?)',
+                 (user_id, favorite_user_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Uživatel přidán do oblíbených'}), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<int:user_id>/favorites', methods=['GET'])
+def get_favorite_users(user_id):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''
+            SELECT u.id, u.name, u.rating, u.total_rides, u.verified
+            FROM favorite_users f
+            JOIN users u ON f.favorite_user_id = u.id
+            WHERE f.user_id = ?
+            ORDER BY u.rating DESC
+        ''', (user_id,))
+        
+        favorites = c.fetchall()
+        conn.close()
+        
+        result = []
+        for fav in favorites:
+            result.append({
+                'id': fav[0],
+                'name': fav[1],
+                'rating': fav[2] or 5.0,
+                'total_rides': fav[3] or 0,
+                'verified': fav[4] or False
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro vyhledávání uživatelů
+@app.route('/api/users/search', methods=['GET'])
+def search_users():
+    try:
+        query = request.args.get('q', '').strip()
+        min_rating = request.args.get('min_rating', type=float)
+        verified_only = request.args.get('verified', 'false').lower() == 'true'
+        
+        if not query:
+            return jsonify({'error': 'Zadejte vyhledávací dotaz'}), 400
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        sql = '''
+            SELECT u.id, u.name, u.rating, u.total_rides, u.verified, u.last_active
+            FROM users u
+            WHERE u.name LIKE ?
+        '''
+        params = [f'%{query}%']
+        
+        if min_rating:
+            sql += ' AND u.rating >= ?'
+            params.append(min_rating)
+        
+        if verified_only:
+            sql += ' AND u.verified = 1'
+        
+        sql += ' ORDER BY u.rating DESC, u.total_rides DESC LIMIT 20'
+        
+        c.execute(sql, params)
+        users = c.fetchall()
+        conn.close()
+        
+        result = []
+        for user in users:
+            result.append({
+                'id': user[0],
+                'name': user[1],
+                'rating': user[2] or 5.0,
+                'total_rides': user[3] or 0,
+                'verified': user[4] or False,
+                'last_active': user[5]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro přidání jízdy do historie
+@app.route('/api/rides/<int:ride_id>/complete', methods=['POST'])
+def complete_ride(ride_id):
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'Přihlášení je vyžadováno'}), 401
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Získej detaily jízdy
+        c.execute('''
+            SELECT r.id, r.user_id, r.from_location, r.to_location, r.departure_time, r.price_per_person
+            FROM rides r WHERE r.id = ?
+        ''', (ride_id,))
+        
+        ride = c.fetchone()
+        if not ride:
+            conn.close()
+            return jsonify({'error': 'Jízda nenalezena'}), 404
+        
+        # Získej všechny pasažéry
+        c.execute('''
+            SELECT res.passenger_id FROM reservations res
+            WHERE res.ride_id = ? AND res.status = 'confirmed'
+        ''', (ride_id,))
+        
+        passengers = c.fetchall()
+        
+        # Přidej do historie pro řidiče
+        c.execute('''
+            INSERT INTO ride_history (ride_id, driver_id, from_location, to_location, departure_time, price_per_person)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (ride[0], ride[1], ride[2], ride[3], ride[4], ride[5]))
+        
+        # Přidej do historie pro každého pasažéra
+        for passenger in passengers:
+            c.execute('''
+                INSERT INTO ride_history (ride_id, driver_id, passenger_id, from_location, to_location, departure_time, price_per_person)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (ride[0], ride[1], passenger[0], ride[2], ride[3], ride[4], ride[5]))
+        
+        # Aktualizuj počet jízd uživatelů
+        c.execute('UPDATE users SET total_rides = total_rides + 1 WHERE id = ?', (ride[1],))
+        for passenger in passengers:
+            c.execute('UPDATE users SET total_rides = total_rides + 1 WHERE id = ?', (passenger[0],))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Jízda označena jako dokončená'}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
