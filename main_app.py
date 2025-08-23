@@ -426,6 +426,11 @@ def init_db():
         except sqlite3.OperationalError:
             pass
         
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN paypal_email TEXT')
+        except sqlite3.OperationalError:
+            pass
+        
         # Tabulka měst
         c.execute('''CREATE TABLE IF NOT EXISTS cities
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -511,6 +516,7 @@ def register():
         
         email = data.get('email', '').strip()
         home_city = data.get('home_city', '').strip()
+        paypal_email = data.get('paypal_email', '').strip()
         password_confirm = data.get('password_confirm')
         
         if not all([name, phone, password, password_confirm]):
@@ -557,8 +563,8 @@ def register():
         
         try:
             # Registruje uživatele
-            c.execute('INSERT INTO users (name, phone, email, password_hash, rating, home_city) VALUES (?, ?, ?, ?, ?, ?)',
-                     (name, phone_full, email if email else None, password_hash, 5.0, home_city if home_city else None))
+            c.execute('INSERT INTO users (name, phone, email, password_hash, rating, home_city, paypal_email) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                     (name, phone_full, email if email else None, password_hash, 5.0, home_city if home_city else None, paypal_email if paypal_email else None))
             conn.commit()
             conn.close()
             
@@ -1529,13 +1535,75 @@ def create_checkout_session():
         conn.commit()
         conn.close()
         
-        # Přesměruj na PayPal platební bránu
-        paypal_url = f'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=m.zeleny@volny.cz&item_name=Jízda #{ride_id}&amount={amount}&currency_code=CZK&return={request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}&cancel_return={request.host_url}payment-cancel'
+        # Platba pouze provize na tvůj účet, zbytek v hotovosti
+        paypal_url = f'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=m.zeleny@volny.cz&item_name=Poplatek Sveztese.cz #{ride_id}&amount={commission}&currency_code=CZK&return={request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}&cancel_return={request.host_url}payment-cancel'
         
         return jsonify({'checkout_url': paypal_url}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/payment-gateway')
+def payment_gateway():
+    ride_id = request.args.get('ride_id')
+    amount = request.args.get('amount', '0')
+    commission = request.args.get('commission', '0')
+    driver_amount = request.args.get('driver_amount', '0')
+    
+    return f'''
+    <html>
+    <head>
+        <title>Platba za jízdu #{ride_id}</title>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }}
+            .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .bank-info {{ background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .amount {{ font-size: 24px; font-weight: bold; color: #007bff; text-align: center; margin: 20px 0; }}
+            .btn {{ background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 10px 5px; text-decoration: none; display: inline-block; }}
+            .btn-cancel {{ background: #dc3545; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>💳 Platba za jízdu #{ride_id}</h1>
+            
+            <div class="amount">
+                K úhradě: {amount} Kč
+            </div>
+            
+            <div class="bank-info">
+                <h3>🏦 Bankovní údaje pro platbu:</h3>
+                <p><strong>Číslo účtu:</strong> 123-5652280207/0100</p>
+                <p><strong>IBAN:</strong> CZ25 0100 0001 2356 5228 0207</p>
+                <p><strong>SWIFT:</strong> KOMBCZPPXXX</p>
+                <p><strong>Variabilní symbol:</strong> {ride_id}</p>
+                <p><strong>Účel platby:</strong> Spolujízda #{ride_id}</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h4>Detail platby:</h4>
+                <p>Cena jízdy: {amount} Kč</p>
+                <p>Poplatek Sveztese.cz: {commission} Kč (10%)</p>
+                <p>Řidiči: {driver_amount} Kč</p>
+            </div>
+            
+            <p><strong>Instrukce:</strong></p>
+            <ol>
+                <li>Proveďte bankovní převod na výše uvedený účet</li>
+                <li>Jako variabilní symbol uveďte: <strong>{ride_id}</strong></li>
+                <li>Po provedení platby klikněte na "Platba provedena"</li>
+                <li>Kontaktní údaje řidiče získáte po ověření platby</li>
+            </ol>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="/payment-success?ride_id={ride_id}&amount={amount}&commission={commission}" class="btn">✓ Platba provedena</a>
+                <a href="/payment-cancel" class="btn btn-cancel">❌ Zrušit platbu</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
 
 @app.route('/payment-success')
 def payment_success():
@@ -1552,10 +1620,11 @@ def payment_success():
         <p>Vaše místo v jízdě #{ride_id} bylo rezervováno.</p>
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; max-width: 400px; margin-left: auto; margin-right: auto;">
             <h3>Detail platby:</h3>
-            <p><strong>Celková částka:</strong> {amount} Kč</p>
-            <p><strong>Poplatek Sveztese.cz:</strong> {commission} Kč (10%)</p>
-            <p><strong>Řidiči:</strong> {driver_amount} Kč</p>
+            <p><strong>Poplatek Sveztese.cz:</strong> {commission} Kč (zaplaceno online)</p>
+            <p><strong>Řidiči v hotovosti:</strong> {driver_amount} Kč</p>
+            <p><strong>Celková cena jízdy:</strong> {amount} Kč</p>
         </div>
+        <p><strong>Důležité:</strong> Zbytek ({driver_amount} Kč) zaplaťte řidiči v hotovosti při jízdě.</p>
         <p>Brzy vás bude kontaktovat řidič.</p>
         <a href="/" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Zpět do aplikace</a>
     </body>

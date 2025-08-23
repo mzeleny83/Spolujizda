@@ -133,6 +133,11 @@
                 <label>Potvrzení hesla:</label>
                 <input type="password" id="regPasswordConfirm" onkeypress="if(event.key==='Enter') register()" />
             </div>
+            <div class="form-group">
+                <label>PayPal email (pro řidiče - volitelné):</label>
+                <input type="email" id="regPaypalEmail" placeholder="paypal@example.com" />
+                <small style="color: #666; font-size: 12px;">Pokud chcete přijímat platby online, zadejte váš PayPal email</small>
+            </div>
             <div style="margin: 15px 0; font-size: 12px; color: #666;">
                 <label><input type="checkbox" id="agreeTerms" required> Souhlasím s <a href="/terms" target="_blank">obchodními podmínkami</a></label><br>
                 <label><input type="checkbox" id="agreePrivacy" required> Souhlasím se <a href="/privacy" target="_blank">zpracováním osobních údajů</a></label>
@@ -437,7 +442,8 @@
                 email: document.getElementById('regEmail').value,
                 home_city: document.getElementById('regCity').value,
                 password: document.getElementById('regPassword').value,
-                password_confirm: document.getElementById('regPasswordConfirm').value
+                password_confirm: document.getElementById('regPasswordConfirm').value,
+                paypal_email: document.getElementById('regPaypalEmail').value
             };
 
             try {
