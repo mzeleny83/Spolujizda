@@ -632,6 +632,12 @@ def search_rides():
         user_lat = request.args.get('lat', type=float)
         user_lng = request.args.get('lng', type=float)
         search_range = request.args.get('range', type=int)
+        
+        # Datum a čas parametry
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        time_from = request.args.get('time_from', '').strip()
+        time_to = request.args.get('time_to', '').strip()
 
         # Základní dotaz
         query = "SELECT r.*, u.name, u.rating FROM rides r LEFT JOIN users u ON r.user_id = u.id"
@@ -654,6 +660,23 @@ def search_rides():
         if not include_own and user_id is not None:
             conditions.append("r.user_id != :user_id")
             params['user_id'] = user_id
+        
+        # Filtrování podle data a času
+        if date_from:
+            conditions.append("DATE(r.departure_time) >= :date_from")
+            params['date_from'] = date_from
+        
+        if date_to:
+            conditions.append("DATE(r.departure_time) <= :date_to")
+            params['date_to'] = date_to
+        
+        if time_from:
+            conditions.append("TIME(r.departure_time) >= :time_from")
+            params['time_from'] = time_from
+        
+        if time_to:
+            conditions.append("TIME(r.departure_time) <= :time_to")
+            params['time_to'] = time_to
 
         # Sestavení finálního dotazu
         if conditions:
@@ -1884,6 +1907,55 @@ def delete_user_by_name(user_name):
         conn.close()
         
         return jsonify({'message': f'Uživatel {user_name} byl smazán'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Debug endpoint pro kontrolu uživatelů
+@app.route('/api/debug/users', methods=['GET'])
+def debug_users():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('SELECT name, home_city, phone FROM users ORDER BY name')
+        users = c.fetchall()
+        conn.close()
+        
+        result = []
+        for user in users:
+            result.append({
+                'name': user[0],
+                'home_city': user[1],
+                'phone': user[2]
+            })
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro aktualizaci města uživatele
+@app.route('/api/users/update-city', methods=['POST'])
+def update_user_city():
+    try:
+        data = request.get_json()
+        user_name = data.get('name')
+        home_city = data.get('home_city')
+        
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Aktualizuj město uživatele
+        c.execute('UPDATE users SET home_city = ? WHERE name = ?', (home_city, user_name))
+        
+        if c.rowcount == 0:
+            conn.close()
+            return jsonify({'error': 'Uživatel nenalezen'}), 404
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': f'Město {home_city} přidáno uživateli {user_name}'}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
