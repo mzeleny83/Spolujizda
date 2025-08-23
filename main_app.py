@@ -1850,6 +1850,44 @@ def get_cities():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# API pro smazání uživatele
+@app.route('/api/users/delete/<user_name>', methods=['DELETE'])
+def delete_user_by_name(user_name):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Najdi uživatele podle jména
+        c.execute('SELECT id FROM users WHERE name = ?', (user_name,))
+        user = c.fetchone()
+        
+        if not user:
+            conn.close()
+            return jsonify({'error': 'Uživatel nenalezen'}), 404
+        
+        user_id = user[0]
+        
+        # Smaž všechna související data
+        c.execute('DELETE FROM reservations WHERE passenger_id = ?', (user_id,))
+        c.execute('DELETE FROM rides WHERE user_id = ?', (user_id,))
+        c.execute('DELETE FROM messages WHERE sender_id = ?', (user_id,))
+        c.execute('DELETE FROM ratings WHERE rater_id = ? OR rated_id = ?', (user_id, user_id))
+        c.execute('DELETE FROM blocked_users WHERE blocker_id = ? OR blocked_id = ?', (user_id, user_id))
+        c.execute('DELETE FROM favorite_users WHERE user_id = ? OR favorite_user_id = ?', (user_id, user_id))
+        c.execute('DELETE FROM ride_history WHERE driver_id = ? OR passenger_id = ?', (user_id, user_id))
+        c.execute('DELETE FROM user_stats WHERE user_id = ?', (user_id,))
+        
+        # Smaž uživatele
+        c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': f'Uživatel {user_name} byl smazán'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':
