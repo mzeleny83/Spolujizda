@@ -608,19 +608,12 @@ def search_rides():
                 from_coords = cities.get(ride[2].split(',')[0].strip())  # Pouze město, bez ulice
                 to_coords = cities.get(ride[3].split(',')[0].strip())    # Pouze město, bez ulice
                 
-                min_distance = float('inf')
-                
-                # Vzdálenost k výchozímu městu
+                # Vzdálenost pouze k výchozímu městu (odkud jede jízda)
                 if from_coords:
-                    dist_from = calculate_distance(user_lat, user_lng, from_coords[0], from_coords[1])
-                    min_distance = min(min_distance, dist_from)
-                
-                # Vzdálenost k cílovému městu
-                if to_coords:
-                    dist_to = calculate_distance(user_lat, user_lng, to_coords[0], to_coords[1])
-                    min_distance = min(min_distance, dist_to)
-                
-                distance = min_distance
+                    distance = calculate_distance(user_lat, user_lng, from_coords[0], from_coords[1])
+                else:
+                    # Pokud nemáme souřadnice výchozího města, přeskoč jízdu
+                    continue
                 
                 # Filtruj podle vzdálenosti - jízda musí být blízko ALESPOŇ jednoho z měst
                 if distance > search_range:
