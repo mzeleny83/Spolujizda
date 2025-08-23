@@ -811,27 +811,12 @@ def search_user():
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         
-        # Hledání podle emailu nebo telefonu
+        # Hledání pouze podle emailu (telefon skryt)
         if '@' in query:
             c.execute('SELECT id, name, phone, email, rating FROM users WHERE email LIKE ?', (f'%{query}%',))
         else:
-            # Normalizace telefonu - hledá všechny formáty
-            phone_clean = ''.join(filter(str.isdigit, query))
-            
-            # Hledá různé formáty telefonu
-            search_patterns = [
-                f'%{phone_clean}%',
-                f'%+420{phone_clean}%',
-                f'%420{phone_clean}%'
-            ]
-            
-            # Pokud začíná 420, zkusí i bez něj
-            if phone_clean.startswith('420'):
-                search_patterns.append(f'%{phone_clean[3:]}%')
-            
-            c.execute('SELECT id, name, phone, email, rating FROM users WHERE ' + 
-                     ' OR '.join(['phone LIKE ?' for _ in search_patterns]), 
-                     search_patterns)
+            # Hledání podle jména
+            c.execute('SELECT id, name, phone, email, rating FROM users WHERE name LIKE ?', (f'%{query}%',))
         
         user = c.fetchone()
         conn.close()
@@ -842,7 +827,7 @@ def search_user():
         return jsonify({
             'id': user[0],
             'name': user[1],
-            'phone': user[2],
+            'phone': '***-***-***',  # Skryj telefon
             'email': user[3] or '',
             'rating': user[4] or 5.0
         }), 200
@@ -1100,7 +1085,7 @@ def get_user_reservations_simple(user_id):
         c.execute('''
             SELECT res.id, res.seats_reserved, res.status, res.created_at,
                    r.from_location, r.to_location, r.departure_time, r.price_per_person,
-                   u.name as driver_name, u.phone as driver_phone
+                   u.name as driver_name, u.phone as driver_phone, r.id as ride_id
             FROM reservations res
             JOIN rides r ON res.ride_id = r.id
             JOIN users u ON r.user_id = u.id
@@ -1109,10 +1094,16 @@ def get_user_reservations_simple(user_id):
         ''', (user_id,))
         
         reservations = c.fetchall()
-        conn.close()
         
         result = []
         for res in reservations:
+            # Zkontroluj, zda je platba dokončena
+            c.execute('SELECT status FROM payments WHERE ride_id = ? AND passenger_id = ? AND status = "completed"', (res[10], user_id))
+            payment = c.fetchone()
+            
+            # Skryj pouze telefon pokud není zaplaceno
+            driver_phone = res[9] if payment else "Skryto - zaplaťte nejdříve"
+            
             result.append({
                 'reservation_id': res[0],
                 'seats_reserved': res[1],
@@ -1123,9 +1114,11 @@ def get_user_reservations_simple(user_id):
                 'departure_time': res[6],
                 'price_per_person': res[7],
                 'driver_name': res[8],
-                'driver_phone': res[9]
+                'driver_phone': driver_phone,
+                'is_paid': bool(payment)
             })
         
+        conn.close()
         return jsonify(result), 200
         
     except Exception as e:
@@ -1536,10 +1529,10 @@ def create_checkout_session():
         conn.commit()
         conn.close()
         
-        # Vrať mock URL pro testování
-        checkout_url = f'{request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}'
+        # Přesměruj na PayPal platební bránu
+        paypal_url = f'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=m.zeleny@volny.cz&item_name=Jízda #{ride_id}&amount={amount}&currency_code=CZK&return={request.host_url}payment-success?ride_id={ride_id}&amount={amount}&commission={commission}&cancel_return={request.host_url}payment-cancel'
         
-        return jsonify({'checkout_url': checkout_url}), 200
+        return jsonify({'checkout_url': paypal_url}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1640,6 +1633,17 @@ def update_user_location():
 @app.route('/api/users/all', methods=['GET'])
 def get_all_users():
     try:
+        # Ověř, že uživatel má alespoň jednu dokončenou platbu
+        user_id = request.args.get('user_id', type=int)
+        if user_id:
+            conn = sqlite3.connect(DATABASE)
+            c = conn.cursor()
+            c.execute('SELECT COUNT(*) FROM payments WHERE passenger_id = ? AND status = "completed"', (user_id,))
+            payment_count = c.fetchone()[0]
+            if payment_count == 0:
+                conn.close()
+                return jsonify({'error': 'Přístup pouze pro zaplacené uživatele'}), 403
+        
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         c.execute('''
@@ -1661,7 +1665,7 @@ def get_all_users():
             result.append({
                 'id': user[0],
                 'name': user[1],
-                'phone': user[2][:8] + '***',  # Skryj část telefonu
+                'phone': '***-***-***',  # Skryj celý telefon
                 'rating': user[3] or 5.0,
                 'total_rides': user[4] or 0,
                 'verified': user[5] or False,
@@ -1852,6 +1856,18 @@ def get_favorite_users(user_id):
 @app.route('/api/users/search', methods=['GET'])
 def search_users():
     try:
+        # Ověř, že uživatel má alespoň jednu dokončenou platbu
+        user_id = request.args.get('user_id', type=int)
+        if user_id:
+            conn = sqlite3.connect(DATABASE)
+            c = conn.cursor()
+            c.execute('SELECT COUNT(*) FROM payments WHERE passenger_id = ? AND status = "completed"', (user_id,))
+            payment_count = c.fetchone()[0]
+            if payment_count == 0:
+                conn.close()
+                return jsonify({'error': 'Přístup pouze pro zaplacené uživatele'}), 403
+            conn.close()
+        
         query = request.args.get('q', '').strip()
         min_rating = request.args.get('min_rating', type=float)
         verified_only = request.args.get('verified', 'false').lower() == 'true'

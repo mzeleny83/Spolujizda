@@ -919,20 +919,30 @@
                     return;
                 }
                 
-                reservationsList.innerHTML = reservations.map(reservation => `
-                    <div class="ride">
-                        <h3>${reservation.from_location} → ${reservation.to_location}</h3>
-                        <div>🕐 ${reservation.departure_time} | 🎫 ${reservation.seats_reserved} místo | 💰 ${reservation.price_per_person} Kč</div>
-                        <div>🚗 Řidič: ${reservation.driver_name || 'Neznámý'} | 📞 ${reservation.driver_phone || 'Bez telefonu'}</div>
-                        <div style="margin-top: 10px;">
-                            <span style="background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px;">✓ Rezervováno</span>
-                            <button class="btn" onclick="openChat('passenger', ${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #17a2b8; margin-left: 10px; padding: 5px 15px;">💬 Chat s řidičem</button>
-                            <button class="btn" onclick="rateDriver(${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #ffc107; margin-left: 10px; padding: 5px 15px;">⭐ Hodnotit řidiče</button>
-                            <button class="btn btn-success" onclick="payForReservation(${reservation.reservation_id}, ${reservation.price_per_person})" style="margin-left: 10px; padding: 5px 15px;">💳 Zaplatit</button>
-                            <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})" style="margin-left: 10px; padding: 5px 15px;">❌ Zrušit</button>
+                reservationsList.innerHTML = reservations.map(reservation => {
+                    const isPaid = reservation.is_paid;
+                    const paymentStatus = isPaid ? 
+                        '<span style="background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px;">✓ Zaplaceno</span>' :
+                        '<span style="background: #ffc107; color: black; padding: 5px 10px; border-radius: 15px; font-size: 12px;">⏳ Nezaplaceno</span>';
+                    
+                    const payButton = isPaid ? '' : 
+                        `<button class="btn btn-success" onclick="payForReservation(${reservation.reservation_id}, ${reservation.price_per_person})" style="margin-left: 10px; padding: 5px 15px;">💳 Zaplatit</button>`;
+                    
+                    return `
+                        <div class="ride">
+                            <h3>${reservation.from_location} → ${reservation.to_location}</h3>
+                            <div>🕐 ${reservation.departure_time} | 🎫 ${reservation.seats_reserved} místo | 💰 ${reservation.price_per_person} Kč</div>
+                            <div>🚗 Řidič: ${reservation.driver_name || 'Neznámý'} | 📞 ${reservation.driver_phone || 'Bez telefonu'}</div>
+                            <div style="margin-top: 10px;">
+                                ${paymentStatus}
+                                <button class="btn" onclick="openChat('passenger', ${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #17a2b8; margin-left: 10px; padding: 5px 15px;">💬 Chat s řidičem</button>
+                                <button class="btn" onclick="rateDriver(${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #ffc107; margin-left: 10px; padding: 5px 15px;">⭐ Hodnotit řidiče</button>
+                                ${payButton}
+                                <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})" style="margin-left: 10px; padding: 5px 15px;">❌ Zrušit</button>
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
                 
             } catch (error) {
                 reservationsList.innerHTML = '❌ Chyba při načítání: ' + error.message;
@@ -1765,7 +1775,7 @@
             resultsDiv.innerHTML = '⏳ Načítám nejlepší uživatele...';
             
             try {
-                const response = await fetch('/api/users/all');
+                const response = await fetch(`/api/users/all?user_id=${currentUser?.id || 0}`);
                 const result = await response.json();
                 
                 if (!response.ok) {
@@ -1816,7 +1826,7 @@
             resultsDiv.innerHTML = '⏳ Vyhledávám uživatele...';
             
             try {
-                let url = `/api/users/search?q=${encodeURIComponent(query)}`;
+                let url = `/api/users/search?q=${encodeURIComponent(query)}&user_id=${currentUser?.id || 0}`;
                 if (verifiedOnly) url += '&verified=true';
                 if (minRating) url += `&min_rating=${minRating}`;
                 if (cityFilter) url += `&city=${encodeURIComponent(cityFilter)}`;
@@ -2007,7 +2017,7 @@
             resultsDiv.innerHTML = '⏳ Načítám kompletní seznam uživatelů...';
             
             try {
-                const response = await fetch('/api/users/all');
+                const response = await fetch(`/api/users/all?user_id=${currentUser?.id || 0}`);
                 const result = await response.json();
                 
                 if (!response.ok) {
