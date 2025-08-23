@@ -958,6 +958,7 @@
                                 ${paymentStatus}
                                 <button class="btn" onclick="openChat('passenger', ${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #17a2b8; margin-left: 10px; padding: 5px 15px;">💬 Chat s řidičem</button>
                                 <button class="btn" onclick="rateDriver(${reservation.reservation_id}, '${reservation.driver_name}')" style="background: #ffc107; margin-left: 10px; padding: 5px 15px;">⭐ Hodnotit řidiče</button>
+                                <button class="btn" onclick="editReservation(${reservation.reservation_id})" style="background: #6f42c1; margin-left: 10px; padding: 5px 15px;">✏️ Upravit jízdu</button>
                                 ${payButton}
                                 <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})" style="margin-left: 10px; padding: 5px 15px;">❌ Zrušit</button>
                             </div>
@@ -1030,6 +1031,32 @@
             } catch (error) {
                 showMessage('Chyba při rušení: ' + error.message, 'error');
             }
+        }
+        
+        function editReservation(reservationId) {
+            const newSeats = prompt('Zadejte nový počet míst (1-4):');
+            if (!newSeats || newSeats < 1 || newSeats > 4) {
+                showMessage('Neplatný počet míst', 'error');
+                return;
+            }
+            
+            fetch(`/api/reservations/edit/${reservationId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({seats_reserved: parseInt(newSeats)})
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showMessage('Rezervace upravena!');
+                    loadReservations();
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            })
+            .catch(error => {
+                showMessage('Chyba při úpravě: ' + error.message, 'error');
+            });
         }
         
         async function loadMyRides() {

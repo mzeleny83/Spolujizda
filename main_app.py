@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import sqlite3
@@ -13,6 +13,28 @@ import stripe
 # from backend_search_api import create_search_routes
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-change-in-production'
+
+# Rate limiting
+from collections import defaultdict
+from time import time
+request_counts = defaultdict(list)
+
+def rate_limit(max_requests=10, window=60):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            client_ip = request.remote_addr
+            now = time()
+            # Vyčisti staré požadavky
+            request_counts[client_ip] = [req_time for req_time in request_counts[client_ip] if now - req_time < window]
+            # Zkontroluj limit
+            if len(request_counts[client_ip]) >= max_requests:
+                return jsonify({'error': 'Příliš mnoho požadavků'}), 429
+            request_counts[client_ip].append(now)
+            return f(*args, **kwargs)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
 app.debug = True
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
@@ -498,6 +520,7 @@ def init_db():
         raise
 
 @app.route('/api/users/register', methods=['POST'])
+@rate_limit(max_requests=5, window=300)  # Max 5 registrací za 5 minut
 def register():
     try:
         data = request.get_json()
@@ -507,6 +530,11 @@ def register():
         
         # Validace jména
         forbidden_names = ['neznámý řidič', 'neznámý', 'unknown', 'driver', 'řidič', 'neznámy ridic', 'test', 'user', 'anonym', 'guest', 'admin', 'null', 'undefined', 'testovací', 'robot']
+        
+        # Input sanitization
+        import re
+        name = re.sub(r'[<>"\'\/]', '', name.strip())
+        phone = re.sub(r'[^+0-9\s-]', '', phone.strip())
         
         if len(name) < 2:
             return jsonify({'error': 'Jméno musí mít alespoň 2 znaky'}), 400
@@ -577,6 +605,7 @@ def register():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/users/login', methods=['POST'])
+@rate_limit(max_requests=10, window=300)  # Max 10 přihlášení za 5 minut
 def login():
     try:
         data = request.get_json()
@@ -2359,12 +2388,18 @@ if __name__ == '__main__':
         # Pokročilé vyhledávání je již implementováno
         print("API endpointy připraveny")
         
-        # Přidá HTTPS hlavičky pro mobilní zařízení
+        # Import bezpečnostních hlaviček
+        from security_headers import add_security_headers
+        
+        @app.before_request
+        def force_https():
+            if not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
+                if 'herokuapp.com' in request.host:
+                    return redirect(request.url.replace('http://', 'https://'))
+        
         @app.after_request
         def after_request(response):
-            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            return response
+            return add_security_headers(response)
         
         print("Server se spouští na:")
         print("  Lokální: http://localhost:8080")
@@ -2382,7 +2417,13 @@ if __name__ == '__main__':
         
         port = int(os.environ.get('PORT', 5000))
         print(f"Starting server on port {port}")
-        app.run(debug=False, host='0.0.0.0', port=port)
+        # Pro Heroku použij gunicorn, pro lokální vývoj Flask
+        if os.environ.get('DYNO'):
+            # Heroku prostředí
+            app.run(debug=False, host='0.0.0.0', port=port)
+        else:
+            # Lokální vývoj
+            app.run(debug=True, host='0.0.0.0', port=port)
     except KeyboardInterrupt:
         signal_handler(signal.SIGINT, None)
     except Exception as e:
