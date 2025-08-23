@@ -1482,7 +1482,15 @@ def create_checkout_session():
         if not ride:
             return jsonify({'error': 'Jízda nenalezena'}), 404
         
-        # Výpočet provize
+        # Kontrola a výpočet provize
+        if amount is None:
+            return jsonify({'error': 'Částka není zadána'}), 400
+        
+        try:
+            amount = int(amount)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Neplatná částka'}), 400
+        
         commission = int(amount * COMMISSION_RATE)
         driver_amount = amount - commission
         
@@ -2141,6 +2149,33 @@ def add_driver_bank_account():
         conn.close()
         
         return jsonify({'message': 'Bankovní účet uložen'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# API pro vyčištění databáze
+@app.route('/api/admin/cleanup', methods=['POST'])
+def cleanup_database():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        
+        # Smaž uživatele bez domovského města
+        c.execute('DELETE FROM users WHERE home_city IS NULL OR home_city = ""')
+        deleted_users = c.rowcount
+        
+        # Smaž jízdy s neplatnou cenou (NULL, 0 nebo záporná)
+        c.execute('DELETE FROM rides WHERE price_per_person IS NULL OR price_per_person <= 0')
+        deleted_rides = c.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': 'Databáze vyčištěna',
+            'deleted_users': deleted_users,
+            'deleted_rides': deleted_rides
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
