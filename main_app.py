@@ -1096,6 +1096,40 @@ def create_reservation():
 def get_user_reservations_simple(user_id):
     return jsonify([])
 
+@app.route('/api/reservations/<int:reservation_id>')
+def get_reservation_details(reservation_id):
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('''
+            SELECT res.id, res.ride_id, res.passenger_id, res.seats_reserved, res.status,
+                   r.from_location, r.to_location, r.departure_time, r.price_per_person
+            FROM reservations res
+            JOIN rides r ON res.ride_id = r.id
+            WHERE res.id = ?
+        ''', (reservation_id,))
+        
+        reservation = c.fetchone()
+        conn.close()
+        
+        if not reservation:
+            return jsonify({'error': 'Rezervace nenalezena'}), 404
+        
+        return jsonify({
+            'id': reservation[0],
+            'ride_id': reservation[1],
+            'passenger_id': reservation[2],
+            'seats_reserved': reservation[3],
+            'status': reservation[4],
+            'from_location': reservation[5],
+            'to_location': reservation[6],
+            'departure_time': reservation[7],
+            'price_per_person': reservation[8]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/reservations/driver/<int:driver_id>')
 def get_driver_reservations(driver_id):
     try:
@@ -1438,9 +1472,12 @@ def create_checkout_session():
         # Získej detaily jízdy
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
-        c.execute('SELECT from_location, to_location FROM rides WHERE id = ?', (ride_id,))
+        c.execute('SELECT from_location, to_location, user_id FROM rides WHERE id = ?', (ride_id,))
         ride = c.fetchone()
-        conn.close()
+        
+        if not ride:
+            conn.close()
+            return jsonify({'error': 'Jízda nenalezena'}), 404
         
         if not ride:
             return jsonify({'error': 'Jízda nenalezena'}), 404
@@ -1473,6 +1510,13 @@ def create_checkout_session():
                 'commission': commission
             }
         )
+        
+        # Ulož platbu do databáze
+        c.execute('''INSERT INTO payments (ride_id, passenger_id, driver_id, amount, commission, driver_amount, stripe_payment_id, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')''',
+                 (ride_id, user_id, ride[2], amount, commission, driver_amount, checkout_session.id))
+        conn.commit()
+        conn.close()
         
         return jsonify({'checkout_url': checkout_session.url}), 200
         

@@ -932,11 +932,21 @@
             }
             
             try {
+                // Nejdříve získej ride_id z rezervace
+                const reservationResponse = await fetch(`/api/reservations/${reservationId}`);
+                if (!reservationResponse.ok) {
+                    showMessage('Rezervace nenalezena', 'error');
+                    return;
+                }
+                
+                const reservation = await reservationResponse.json();
+                const rideId = reservation.ride_id;
+                
                 const response = await fetch('/api/payments/create-checkout-session', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        ride_id: reservationId, // Použij reservation_id jako ride_id
+                        ride_id: rideId, // Použij skutečné ride_id
                         user_id: currentUser.id,
                         amount: price
                     })
@@ -1797,10 +1807,7 @@
                 if (minRating) url += `&min_rating=${minRating}`;
                 if (cityFilter) url += `&city=${encodeURIComponent(cityFilter)}`;
                 
-                console.log('Vyhledávací URL:', url);
-                
                 const response = await fetch(url);
-                console.log('Response status:', response.status);
                 const result = await response.json();
                 
                 if (!response.ok) {
