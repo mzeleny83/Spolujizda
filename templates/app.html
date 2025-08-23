@@ -832,7 +832,15 @@
                     })
                 });
                 
-                const result = await response.json();
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    // Server vrátil HTML místo JSON
+                    const text = await response.text();
+                    showMessage(`Chyba serveru (${response.status}): ${text.substring(0, 100)}...`, 'error');
+                    return;
+                }
                 
                 if (response.ok) {
                     showMessage('Jízda úspěšně rezervována!');
@@ -846,8 +854,7 @@
                         loadReservations();
                     }, 2000);
                 } else {
-                    showMessage(result.error, 'error');
-                    // Nezavírej chybovou zprávu automaticky
+                    showMessage(result.error || `HTTP ${response.status}`, 'error');
                 }
             } catch (error) {
                 showMessage('Chyba při rezervaci: ' + error.message, 'error');
