@@ -891,8 +891,8 @@
                 console.log('Payment response:', session);
                 
                 if (response.ok && session.checkout_url) {
-                    showMessage('Přesměrovávám na platbu...');
-                    window.location.href = session.checkout_url;
+                    showMessage('Otevírám PayPal v novém okně...');
+                    window.open(session.checkout_url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
                 } else {
                     showMessage(session.error || 'Chyba při vytváření platby', 'error');
                 }
@@ -985,7 +985,7 @@
                 const session = await response.json();
                 
                 if (response.ok) {
-                    window.location.href = session.checkout_url;
+                    window.open(session.checkout_url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
                 } else {
                     showMessage(session.error, 'error');
                 }
