@@ -15,6 +15,23 @@ import stripe
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'
 
+# ROBOTS.TXT - NEJVYŠŠÍ PRIORITA
+@app.route('/robots.txt')
+def robots():
+    return '''User-agent: *
+Allow: /
+Allow: /search
+Allow: /terms
+Allow: /privacy
+Disallow: /api/
+Disallow: /admin/
+Disallow: /debug
+Disallow: /test
+Disallow: /payment-*
+Disallow: /qr-payment
+
+Sitemap: http://sveztese.cz/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
+
 # Rate limiting
 from collections import defaultdict
 from time import time
@@ -54,26 +71,7 @@ user_locations = {}
 
 print("--- main_app.py is being loaded! ---")
 
-@app.route('/robots.txt', methods=['GET'])
-def robots_txt_priority():
-    response = '''User-agent: *
-Allow: /
-Allow: /search
-Allow: /terms
-Allow: /privacy
-Disallow: /api/
-Disallow: /admin/
-Disallow: /debug
-Disallow: /test
-Disallow: /payment-*
-Disallow: /qr-payment
 
-Sitemap: https://sveztese.cz/sitemap.xml'''
-    
-    return Response(response, mimetype='text/plain', headers={
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*'
-    })
 
 @app.route('/')
 def home():
@@ -1774,22 +1772,22 @@ def sitemap_xml():
     sitemap = '''<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://sveztese.cz/</loc>
+    <loc>http://sveztese.cz/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://sveztese.cz/search</loc>
+    <loc>http://sveztese.cz/search</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://sveztese.cz/terms</loc>
+    <loc>http://sveztese.cz/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://sveztese.cz/privacy</loc>
+    <loc>http://sveztese.cz/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
