@@ -30,7 +30,7 @@ Disallow: /test
 Disallow: /payment-*
 Disallow: /qr-payment
 
-Sitemap: http://sveztese.cz/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
+Sitemap: https://www.sveztese.cz/sitemap.xml''', 200, {'Content-Type': 'text/plain'}
 
 # Rate limiting
 from collections import defaultdict
@@ -87,6 +87,7 @@ def debug_panel():
 
 @app.route('/health')
 def health_check():
+    import datetime
     return jsonify({
         'status': 'OK',
         'timestamp': datetime.datetime.now().isoformat(),
@@ -1772,22 +1773,22 @@ def sitemap_xml():
     sitemap = '''<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>http://sveztese.cz/</loc>
+    <loc>https://www.sveztese.cz/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>http://sveztese.cz/search</loc>
+    <loc>https://www.sveztese.cz/search</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>http://sveztese.cz/terms</loc>
+    <loc>https://www.sveztese.cz/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>http://sveztese.cz/privacy</loc>
+    <loc>https://www.sveztese.cz/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
@@ -2462,11 +2463,6 @@ if __name__ == '__main__':
         def redirect_root_to_www():
             if request.host == "sveztese.cz":
                 return redirect("https://www.sveztese.cz" + request.full_path, code=301)
-
-            @app.route('/robots.txt')
-            def robots_txt():
-                content = "User-agent: *\nAllow: /"
-                return Response(content, mimetype='text/plain')
         
         @app.before_request
         def force_https():
